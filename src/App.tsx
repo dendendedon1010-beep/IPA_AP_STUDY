@@ -27,7 +27,7 @@ import { questions } from './data/questions'
 import { loadHistory, loadSession, loadSettings, resetData, saveHistory, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, ChoiceKey, Confidence, PracticeMode, PracticeSession, Question, Settings, Tab } from './types'
 
-const APP_VERSION = 'v1.3.0'
+const APP_VERSION = 'v1.3.1'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -596,7 +596,7 @@ function SettingsScreen({ value, onChange, onReset }: { value: Settings; onChang
   return (
     <div className="min-w-0 max-w-full space-y-4 overflow-x-hidden">
       <SettingCard title="学習目標" icon={Target}>
-        <label className="block min-w-0 max-w-full text-xs font-bold text-slate-500">試験予定日<input type="date" value={value.examDate} onChange={event => onChange({ ...value, examDate: event.target.value })} className="mt-2 block h-12 w-full min-w-0 max-w-full appearance-none rounded-xl border-0 bg-slate-100 px-3 font-medium text-ink outline-none dark:bg-white/10 dark:text-white" /></label>
+        <label className="block min-w-0 max-w-full text-xs font-bold text-slate-500">試験予定日<input type="date" value={value.examDate} onChange={event => onChange({ ...value, examDate: event.target.value })} className="exam-date-input mt-2 h-12 w-full min-w-0 max-w-full rounded-xl border-0 bg-slate-100 px-3 font-medium text-ink outline-none dark:bg-white/10 dark:text-white" /></label>
         <label className="mt-4 block min-w-0 max-w-full text-xs font-bold text-slate-500">1日の目標学習時間<div className="mt-2 flex min-w-0 flex-wrap gap-2">{[15, 30, 45, 60].map(minutes => <button key={minutes} onClick={() => onChange({ ...value, dailyMinutes: minutes })} className={`h-11 min-w-[64px] flex-1 rounded-xl text-xs font-bold ${value.dailyMinutes === minutes ? 'bg-moss text-white' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{minutes}分</button>)}</div></label>
       </SettingCard>
       <SettingCard title="午後の選択候補" icon={BookOpen}><div className="flex flex-wrap gap-2">{options.map(option => { const active = value.afternoonFields.includes(option); return <button key={option} onClick={() => onChange({ ...value, afternoonFields: active ? value.afternoonFields.filter(field => field !== option) : [...value.afternoonFields, option] })} className={`rounded-full px-3 py-2 text-xs font-bold ${active ? 'bg-moss text-white' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{active && '✓ '}{option}</button> })}</div></SettingCard>
