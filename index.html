@@ -6,6 +6,65 @@
     <meta name="theme-color" content="#f6f8f5" />
     <meta name="description" content="応用情報技術者試験の過去問演習・復習・弱点分析アプリ" />
     <title>AP Study</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { min-height: 100%; margin: 0; overflow-x: hidden; }
+      body { background: #f6f8f5; color: #172019; font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+      .boot-fallback { min-height: 100vh; min-height: 100dvh; display: grid; place-items: center; padding: 20px; }
+      .boot-card { width: min(100%, 440px); padding: 28px 24px; border-radius: 24px; background: #fff; box-shadow: 0 12px 36px rgba(23, 32, 25, .1); text-align: center; }
+      .boot-label { margin: 0 0 10px; color: #55735d; font-size: 12px; font-weight: 800; letter-spacing: .16em; }
+      .boot-card h1 { margin: 0; font-size: 22px; }
+      .boot-card p:not(.boot-label) { margin: 14px 0 22px; color: #647068; font-size: 14px; line-height: 1.7; }
+      .boot-card button { width: 100%; min-height: 48px; margin-top: 10px; padding: 10px 14px; border: 1px solid #d7ded9; border-radius: 12px; background: #fff; color: #172019; font: inherit; font-size: 14px; font-weight: 700; cursor: pointer; }
+      .boot-card button:first-of-type { border-color: #172019; background: #172019; color: #fff; }
+      .boot-error .boot-card { border: 1px solid #e7a1a1; }
+      .app-mounted #boot-fallback { display: none; }
+      @media (prefers-color-scheme: dark) {
+        body { background: #101713; color: #fff; }
+        .boot-card { background: #1b241e; box-shadow: none; }
+        .boot-label { color: #b7d46a; }
+        .boot-card p:not(.boot-label) { color: #c0c9c2; }
+        .boot-card button { border-color: #526057; background: #1b241e; color: #fff; }
+        .boot-card button:first-of-type { border-color: #cce875; background: #cce875; color: #172019; }
+      }
+    </style>
   </head>
-  <body><div id="root"></div><script type="module" src="/src/main.tsx"></script></body>
+  <body>
+    <div id="root">
+      <div id="boot-fallback" class="boot-fallback">
+        <div class="boot-card">
+          <p class="boot-label">AP STUDY</p>
+          <h1 id="boot-title">読み込み中です</h1>
+          <p id="boot-message">数秒待っても表示されない場合は、保存データの不整合やキャッシュが原因の可能性があります。</p>
+          <button type="button" id="boot-reload">再読み込み</button>
+          <button type="button" id="boot-reset-session">現在の演習セッションだけリセット</button>
+          <button type="button" id="boot-reset-all">保存データを初期化して再読み込み</button>
+        </div>
+      </div>
+    </div>
+    <script>
+      (() => {
+        const sessionKeys = ['ap-study-current-session-v1', 'ap-study-current-session-v2'];
+        const allKeys = [...sessionKeys, 'ap-study-history-v1', 'ap-study-settings-v1'];
+        const removeKeys = (keys) => {
+          try { keys.forEach((key) => localStorage.removeItem(key)); } catch (error) { console.error('[AP Study] Failed to reset saved data:', error); }
+          window.location.reload();
+        };
+        const showBootError = () => {
+          document.body.classList.add('boot-error');
+          const title = document.getElementById('boot-title');
+          const message = document.getElementById('boot-message');
+          if (title) title.textContent = '読み込みに失敗しました';
+          if (message) message.textContent = '再読み込みで復旧しない場合は、演習セッションまたは保存データを初期化してください。';
+        };
+
+        window.addEventListener('error', showBootError);
+        window.addEventListener('unhandledrejection', showBootError);
+        document.getElementById('boot-reload')?.addEventListener('click', () => window.location.reload());
+        document.getElementById('boot-reset-session')?.addEventListener('click', () => removeKeys(sessionKeys));
+        document.getElementById('boot-reset-all')?.addEventListener('click', () => removeKeys(allKeys));
+      })();
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
 </html>

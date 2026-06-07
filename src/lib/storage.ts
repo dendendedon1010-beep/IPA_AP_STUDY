@@ -3,6 +3,7 @@ import type { AnswerHistory, PracticeSession, Settings } from '../types'
 const HISTORY_KEY = 'ap-study-history-v1'
 const SETTINGS_KEY = 'ap-study-settings-v1'
 const SESSION_KEY = 'ap-study-current-session-v1'
+const SECONDARY_SESSION_KEY = 'ap-study-current-session-v2'
 export const defaultSettings: Settings = { examDate: '2026-11-15', dailyMinutes: 30, afternoonFields: ['情報セキュリティ', 'ネットワーク'], theme: 'light' }
 const practiceModes = new Set(['recommended', 'field', 'wrong', 'low-confidence', 'unanswered', 'random-10', 'mock-exam'])
 const choiceKeys = new Set(['ア', 'イ', 'ウ', 'エ'])
@@ -81,7 +82,10 @@ export const saveSettings = (value: Settings) => {
   try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(value)) } catch { /* Storage may be unavailable or full. */ }
 }
 export const resetCurrentSession = () => {
-  try { localStorage.removeItem(SESSION_KEY) } catch { /* Storage may be unavailable in restricted browser contexts. */ }
+  try {
+    localStorage.removeItem(SESSION_KEY)
+    localStorage.removeItem(SECONDARY_SESSION_KEY)
+  } catch { /* Storage may be unavailable in restricted browser contexts. */ }
 }
 export const loadSession = (): PracticeSession | null => {
   try {

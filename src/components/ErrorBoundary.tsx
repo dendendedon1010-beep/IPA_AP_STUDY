@@ -36,7 +36,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
     return (
       <main className="flex min-h-screen items-center justify-center bg-paper px-5 text-ink dark:bg-[#101713] dark:text-white">
         <section className="w-full max-w-[440px] rounded-[24px] bg-white p-6 text-center shadow-card dark:bg-white/5">
-          <h1 className="text-lg font-bold">画面の表示中にエラーが発生しました</h1>
+          <h1 className="text-lg font-bold">AP Study の起動に失敗しました</h1>
           <p className="mt-3 text-sm leading-relaxed text-slate-500 dark:text-slate-300">
             学習履歴と設定はそのまま残っています。再読み込みや演習セッションのリセットで復旧しない場合のみ、保存データを初期化してください。
           </p>
@@ -48,7 +48,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
               現在の演習セッションだけリセット
             </button>
             <button onClick={this.resetSavedData} className="h-12 w-full rounded-xl border border-rose-200 text-sm font-bold text-rose-600 dark:border-rose-400/30 dark:text-rose-300">
-              壊れた保存データを安全初期化
+              保存データを初期化して再読み込み
             </button>
           </div>
         </section>
