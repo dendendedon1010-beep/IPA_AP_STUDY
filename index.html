@@ -36,33 +36,46 @@
           <p class="boot-label">AP STUDY</p>
           <h1 id="boot-title">読み込み中です</h1>
           <p id="boot-message">数秒待っても表示されない場合は、保存データの不整合やキャッシュが原因の可能性があります。</p>
-          <button type="button" id="boot-reload">再読み込み</button>
-          <button type="button" id="boot-reset-session">現在の演習セッションだけリセット</button>
-          <button type="button" id="boot-reset-all">保存データを初期化して再読み込み</button>
+          <button type="button" id="boot-reload" onclick="window.apStudyBootReload()">再読み込み</button>
+          <button type="button" id="boot-reset-session" onclick="window.apStudyBootResetSession()">現在の演習セッションだけリセット</button>
+          <button type="button" id="boot-reset-all" onclick="window.apStudyBootResetAll()">保存データを初期化して再読み込み</button>
         </div>
       </div>
     </div>
     <script>
-      (() => {
-        const sessionKeys = ['ap-study-current-session-v1', 'ap-study-current-session-v2'];
-        const allKeys = [...sessionKeys, 'ap-study-history-v1', 'ap-study-settings-v1'];
-        const removeKeys = (keys) => {
-          try { keys.forEach((key) => localStorage.removeItem(key)); } catch (error) { console.error('[AP Study] Failed to reset saved data:', error); }
+      (function () {
+        var sessionKeys = ['ap-study-current-session-v1', 'ap-study-current-session-v2'];
+        var allKeys = sessionKeys.concat(['ap-study-history-v1', 'ap-study-settings-v1']);
+        function safeRemove(key) {
+          try {
+            window.localStorage.removeItem(key);
+          } catch (error) {
+            console.warn('[AP Study] Failed to remove localStorage key:', key, error);
+          }
+        }
+        window.apStudyBootReload = function () {
           window.location.reload();
         };
-        const showBootError = () => {
+        window.apStudyBootResetSession = function () {
+          sessionKeys.forEach(safeRemove);
+          window.location.reload();
+        };
+        window.apStudyBootResetAll = function () {
+          var confirmed = window.confirm('学習履歴と設定を初期化して再読み込みします。よろしいですか？');
+          if (!confirmed) return;
+          allKeys.forEach(safeRemove);
+          window.location.reload();
+        };
+        function showBootError() {
           document.body.classList.add('boot-error');
-          const title = document.getElementById('boot-title');
-          const message = document.getElementById('boot-message');
+          var title = document.getElementById('boot-title');
+          var message = document.getElementById('boot-message');
           if (title) title.textContent = '読み込みに失敗しました';
           if (message) message.textContent = '再読み込みで復旧しない場合は、演習セッションまたは保存データを初期化してください。';
-        };
+        }
 
         window.addEventListener('error', showBootError);
         window.addEventListener('unhandledrejection', showBootError);
-        document.getElementById('boot-reload')?.addEventListener('click', () => window.location.reload());
-        document.getElementById('boot-reset-session')?.addEventListener('click', () => removeKeys(sessionKeys));
-        document.getElementById('boot-reset-all')?.addEventListener('click', () => removeKeys(allKeys));
       })();
     </script>
     <script type="module" src="/src/main.tsx"></script>
