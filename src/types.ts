@@ -1,5 +1,7 @@
 export type ChoiceKey = 'ア' | 'イ' | 'ウ' | 'エ'
 export type Confidence = 'high' | 'normal' | 'low'
+export type MistakeTag = '用語理解不足' | '問題文の読み落とし' | '選択肢の比較ミス' | '計算ミス' | '暗記不足' | '知識の取り違え'
+export type ReviewPriority = 'high' | 'medium' | 'low'
 export type Tab = 'home' | 'practice' | 'review' | 'analytics' | 'settings'
 export type PracticeMode = 'recommended' | 'field' | 'wrong' | 'low-confidence' | 'unanswered' | 'random-10' | 'mock-exam'
 
@@ -42,6 +44,7 @@ export interface AnswerHistory {
   confidence: Confidence
   elapsedSeconds: number
   answeredAt: string
+  mistakeTag?: MistakeTag
 }
 
 export interface Settings {
@@ -58,6 +61,7 @@ export interface SessionAnswer {
   isCorrect: boolean
   confidence: Confidence
   elapsedSeconds: number
+  mistakeTag?: MistakeTag
 }
 
 export interface PracticeSession {

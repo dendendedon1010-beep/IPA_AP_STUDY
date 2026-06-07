@@ -7,6 +7,7 @@ const defaults: Settings = { examDate: '2026-11-15', dailyMinutes: 30, afternoon
 const practiceModes = new Set(['recommended', 'field', 'wrong', 'low-confidence', 'unanswered', 'random-10', 'mock-exam'])
 const choiceKeys = new Set(['ア', 'イ', 'ウ', 'エ'])
 const confidenceLevels = new Set(['high', 'normal', 'low'])
+const mistakeTags = new Set(['用語理解不足', '問題文の読み落とし', '選択肢の比較ミス', '計算ミス', '暗記不足', '知識の取り違え'])
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === 'object' && value !== null
 const isNonNegativeNumber = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value >= 0
@@ -21,7 +22,8 @@ const isPracticeSession = (value: unknown): value is PracticeSession => {
     && choiceKeys.has(String(answer.selectedAnswer))
     && typeof answer.isCorrect === 'boolean'
     && confidenceLevels.has(String(answer.confidence))
-    && isNonNegativeNumber(answer.elapsedSeconds))
+    && isNonNegativeNumber(answer.elapsedSeconds)
+    && (answer.mistakeTag === undefined || mistakeTags.has(String(answer.mistakeTag))))
 
   return typeof value.sessionId === 'string'
     && practiceModes.has(String(value.mode))

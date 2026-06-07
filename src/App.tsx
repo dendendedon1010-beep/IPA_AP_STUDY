@@ -25,9 +25,9 @@ import {
 } from 'lucide-react'
 import { questions } from './data/questions'
 import { loadHistory, loadSession, loadSettings, resetData, saveHistory, saveSession, saveSettings } from './lib/storage'
-import type { AnswerHistory, ChoiceKey, Confidence, PracticeMode, PracticeSession, Question, Settings, Tab } from './types'
+import type { AnswerHistory, ChoiceKey, Confidence, MistakeTag, PracticeMode, PracticeSession, Question, ReviewPriority, Settings, Tab } from './types'
 
-const APP_VERSION = 'v1.3.3'
+const APP_VERSION = 'v1.4.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -49,6 +49,13 @@ const fieldColor: Record<string, string> = {
 }
 
 const allFields = [...new Set(questions.map(question => question.field))]
+const mistakeTags: MistakeTag[] = ['用語理解不足', '問題文の読み落とし', '選択肢の比較ミス', '計算ミス', '暗記不足', '知識の取り違え']
+const priorityLabel: Record<ReviewPriority, string> = { high: '高', medium: '中', low: '低' }
+const priorityClass: Record<ReviewPriority, string> = {
+  high: 'bg-rose-100 text-rose-700 dark:bg-rose-500/20 dark:text-rose-300',
+  medium: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
+  low: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
+}
 const todayKey = () => new Date().toLocaleDateString('sv-SE')
 const answerDateKey = (value: string) => new Date(value).toLocaleDateString('sv-SE')
 
@@ -77,7 +84,55 @@ function getFieldStats(history: AnswerHistory[]) {
   })
 }
 
+function inferMistakeTag(question: Question, isCorrect: boolean, confidence: Confidence): MistakeTag | undefined {
+  if (isCorrect) return confidence === 'low' ? '暗記不足' : undefined
+  if (confidence === 'high') return '知識の取り違え'
+  if (confidence === 'low') return '用語理解不足'
+  if (/計算|求め|何%|時間|工数|稼働率|アドレス/.test(question.questionText)) return '計算ミス'
+  if (/最も|適切|誤って|該当/.test(question.questionText)) return '問題文の読み落とし'
+  return '選択肢の比較ミス'
+}
+
+function getAnswerMistakeTag(answer: Pick<AnswerHistory, 'questionId' | 'isCorrect' | 'confidence' | 'mistakeTag'>) {
+  if (answer.mistakeTag) return answer.mistakeTag
+  const question = questions.find(item => item.id === answer.questionId)
+  return question ? inferMistakeTag(question, answer.isCorrect, answer.confidence) : undefined
+}
+
+function getReviewPriority(questionId: string, history: AnswerHistory[]): ReviewPriority | null {
+  const answers = history.filter(answer => answer.questionId === questionId)
+  if (!answers.length) return 'low'
+  const latest = answers[answers.length - 1]
+  const incorrectCount = answers.filter(answer => !answer.isCorrect).length
+  if (!latest.isCorrect || incorrectCount >= 2) return 'high'
+  if (incorrectCount > 0) return 'medium'
+  if (latest.confidence === 'low') return 'low'
+  if (answers.slice(0, -1).some(answer => answer.confidence === 'low')) return 'medium'
+  return null
+}
+
+function getMistakeCounts(history: AnswerHistory[]) {
+  return mistakeTags.map(tag => ({ tag, count: history.filter(answer => getAnswerMistakeTag(answer) === tag).length }))
+}
+
+function getConsecutiveWrongField(history: AnswerHistory[]) {
+  const recentWrong = history.slice(-2)
+  if (recentWrong.length < 2 || recentWrong.some(answer => answer.isCorrect)) return null
+  const fields = recentWrong.map(answer => questions.find(question => question.id === answer.questionId)?.field)
+  return fields[0] && fields[0] === fields[1] ? fields[0] : null
+}
+
 function getRecommendation(history: AnswerHistory[]) {
+  const highPriority = questions.filter(question => getReviewPriority(question.id, history) === 'high')
+  if (highPriority.length) return { text: `復習優先度 高 の問題が${highPriority.length}問あります`, items: highPriority.slice(0, 5), mode: 'recommended' as PracticeMode }
+  const consecutiveWrongField = getConsecutiveWrongField(history)
+  if (consecutiveWrongField) {
+    const items = questions.filter(question => question.field === consecutiveWrongField).slice(0, 5)
+    return { text: `${consecutiveWrongField}でミスが増えています`, items, mode: 'recommended' as PracticeMode }
+  }
+  const latest = getLatestAnswers(history)
+  const lowConfidence = questions.filter(question => latest.get(question.id)?.confidence === 'low')
+  if (lowConfidence.length) return { text: `自信なし問題を${Math.min(5, lowConfidence.length)}問復習しましょう`, items: lowConfidence.slice(0, 5), mode: 'low-confidence' as PracticeMode }
   const stats = getFieldStats(history)
   const answeredStats = stats.filter(item => item.count > 0)
   const mostIncorrect = [...stats].sort((a, b) => b.incorrect - a.incorrect)[0]
@@ -168,6 +223,7 @@ function App() {
     if (!selected || !session || !currentQuestion) return
     const elapsedSeconds = Math.max(1, Math.round((Date.now() - start.current) / 1000))
     const isCorrect = selected === currentQuestion.correctAnswer
+    const mistakeTag = inferMistakeTag(currentQuestion, isCorrect, confidence)
     const entry: AnswerHistory = {
       id: crypto.randomUUID(),
       questionId: currentQuestion.id,
@@ -176,6 +232,7 @@ function App() {
       confidence,
       elapsedSeconds,
       answeredAt: new Date().toISOString(),
+      mistakeTag,
     }
     setHistory(current => [...current, entry])
     setSession(current => current && ({
@@ -183,7 +240,7 @@ function App() {
       correctCount: current.correctCount + (isCorrect ? 1 : 0),
       wrongCount: current.wrongCount + (isCorrect ? 0 : 1),
       elapsedSeconds: current.elapsedSeconds + elapsedSeconds,
-      answers: [...current.answers, { questionId: currentQuestion.id, selectedAnswer: selected, isCorrect, confidence, elapsedSeconds }],
+      answers: [...current.answers, { questionId: currentQuestion.id, selectedAnswer: selected, isCorrect, confidence, elapsedSeconds, mistakeTag }],
     }))
     setResult(true)
   }
@@ -247,6 +304,7 @@ function App() {
             <ResultScreen
               session={session}
               questions={sessionQuestions}
+              history={history}
               onStart={startPractice}
               onHome={() => { leaveSession(); setTab('home') }}
               onAnalytics={() => { leaveSession(); setTab('analytics') }}
@@ -305,10 +363,8 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const accuracy = history.length ? Math.round((history.filter(answer => answer.isCorrect).length / history.length) * 100) : 0
   const todayAnswers = history.filter(answer => answerDateKey(answer.answeredAt) === todayKey()).length
-  const reviewQuestions = questions.filter(question => {
-    const answer = latest.get(question.id)
-    return answer && (!answer.isCorrect || answer.confidence === 'low')
-  })
+  const reviewQuestions = questions.filter(question => getReviewPriority(question.id, history))
+  const highPriorityCount = reviewQuestions.filter(question => getReviewPriority(question.id, history) === 'high').length
   const ranked = stats.filter(item => item.count > 0)
   const weak = [...ranked].sort((a, b) => a.accuracy - b.accuracy || b.incorrect - a.incorrect).slice(0, 3)
   const strong = [...ranked].sort((a, b) => b.accuracy - a.accuracy || b.count - a.count).slice(0, 3)
@@ -335,8 +391,8 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
         <SummaryCard label="今日の回答数" value={`${todayAnswers}問`} icon={Clock3} />
         <button onClick={onReview} className="rounded-2xl bg-white p-4 text-left shadow-sm dark:bg-white/5">
           <div className="flex items-center justify-between text-rose-500"><RotateCcw size={18} /><ChevronRight size={16} /></div>
-          <p className="mt-3 text-[10px] font-bold text-slate-400">復習待ち</p>
-          <p className="tabular mt-1 text-xl font-bold">{reviewQuestions.length}問</p>
+          <p className="mt-3 text-[10px] font-bold text-slate-400">復習優先度 高</p>
+          <p className="tabular mt-1 text-xl font-bold">{highPriorityCount}問</p>
         </button>
       </section>
 
@@ -412,12 +468,14 @@ function PracticeMenu({ history, onStart }: { history: AnswerHistory[]; onStart:
   )
 }
 
-function ResultScreen({ session, questions: sessionQuestions, onStart, onHome, onAnalytics }: { session: PracticeSession; questions: Question[]; onStart: (items: Question[], mode: PracticeMode) => void; onHome: () => void; onAnalytics: () => void }) {
+function ResultScreen({ session, questions: sessionQuestions, history, onStart, onHome, onAnalytics }: { session: PracticeSession; questions: Question[]; history: AnswerHistory[]; onStart: (items: Question[], mode: PracticeMode) => void; onHome: () => void; onAnalytics: () => void }) {
   const accuracy = session.totalQuestions ? Math.round((session.correctCount / session.totalQuestions) * 100) : 0
   const wrongIds = new Set(session.answers.filter(answer => !answer.isCorrect).map(answer => answer.questionId))
   const lowConfidenceIds = new Set(session.answers.filter(answer => answer.confidence === 'low').map(answer => answer.questionId))
   const wrongQuestions = sessionQuestions.filter(question => wrongIds.has(question.id))
   const lowConfidenceQuestions = sessionQuestions.filter(question => lowConfidenceIds.has(question.id))
+  const highPriorityQuestions = sessionQuestions.filter(question => getReviewPriority(question.id, history) === 'high')
+  const topMistakes = mistakeTags.map(tag => ({ tag, count: session.answers.filter(answer => getAnswerMistakeTag(answer) === tag).length })).filter(item => item.count).sort((a, b) => b.count - a.count).slice(0, 3)
   const fieldResults = allFields.map(field => {
     const ids = new Set(sessionQuestions.filter(question => question.field === field).map(question => question.id))
     const answers = session.answers.filter(answer => ids.has(answer.questionId))
@@ -442,10 +500,16 @@ function ResultScreen({ session, questions: sessionQuestions, onStart, onHome, o
       </section>
       <ResultQuestionList title="間違えた問題" items={wrongQuestions} empty="今回の不正解はありません" />
       <ResultQuestionList title="自信なし問題" items={lowConfidenceQuestions} empty="自信なし問題はありません" />
+      <section className="rounded-[24px] bg-white p-5 shadow-sm dark:bg-white/5">
+        <div className="flex items-center justify-between"><h3 className="font-bold">次の復習ポイント</h3><span className="rounded-full bg-rose-100 px-3 py-1 text-xs font-bold text-rose-700 dark:bg-rose-500/20 dark:text-rose-300">優先度 高 {highPriorityQuestions.length}問</span></div>
+        <p className="mt-4 text-xs font-bold text-slate-500 dark:text-slate-300">ミス傾向 TOP3</p>
+        {topMistakes.length ? <div className="mt-2 flex flex-wrap gap-2">{topMistakes.map(item => <span key={item.tag} className="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold dark:bg-white/10">{item.tag}：{item.count}件</span>)}</div> : <p className="mt-2 text-xs text-slate-400">今回のミス傾向はありません</p>}
+      </section>
       <section className="rounded-[22px] bg-lime/30 p-4"><p className="flex items-center gap-2 text-xs font-bold text-moss dark:text-lime"><Sparkles size={17} />復習おすすめ</p><p className="mt-2 text-sm font-bold leading-relaxed">{recommendation}</p></section>
       <div className="space-y-2">
-        <button disabled={!wrongQuestions.length} onClick={() => onStart(wrongQuestions, 'wrong')} className="h-12 w-full rounded-xl bg-ink text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400 dark:bg-lime dark:text-ink">間違えた問題だけ復習</button>
-        <button disabled={!lowConfidenceQuestions.length} onClick={() => onStart(lowConfidenceQuestions, 'low-confidence')} className="h-12 w-full rounded-xl border border-ink text-sm font-bold disabled:border-slate-200 disabled:text-slate-400 dark:border-lime">自信なし問題だけ復習</button>
+        <button disabled={!highPriorityQuestions.length} onClick={() => onStart(highPriorityQuestions, 'recommended')} className="h-12 w-full rounded-xl bg-ink text-sm font-bold text-white disabled:bg-slate-200 disabled:text-slate-400 dark:bg-lime dark:text-ink">優先度 高 だけ復習</button>
+        <button disabled={!wrongQuestions.length} onClick={() => onStart(wrongQuestions, 'wrong')} className="h-12 w-full rounded-xl border border-ink text-sm font-bold disabled:border-slate-200 disabled:text-slate-400 dark:border-lime">今回間違えた問題を復習</button>
+        <button disabled={!lowConfidenceQuestions.length} onClick={() => onStart(lowConfidenceQuestions, 'low-confidence')} className="h-12 w-full rounded-xl border border-ink text-sm font-bold disabled:border-slate-200 disabled:text-slate-400 dark:border-lime">自信なし問題を復習</button>
         <button onClick={() => onStart(session.mode === 'random-10' ? shuffle(questions).slice(0, 10) : session.mode === 'mock-exam' ? shuffle(questions.filter(question => question.examType === 'morning')).slice(0, 10) : sessionQuestions, session.mode)} className="h-12 w-full rounded-xl bg-white text-sm font-bold shadow-sm dark:bg-white/5">同じ条件でもう一度</button>
         <div className="grid grid-cols-2 gap-2"><button onClick={onHome} className="h-12 rounded-xl bg-white text-sm font-bold shadow-sm dark:bg-white/5">ホームへ戻る</button><button onClick={onAnalytics} className="h-12 rounded-xl bg-white text-sm font-bold shadow-sm dark:bg-white/5">分析を見る</button></div>
       </div>
@@ -464,6 +528,7 @@ function ResultQuestionList({ title, items, empty }: { title: string; items: Que
 function QuestionScreen({ question, selected, setSelected, result, confidence, setConfidence }: { question: Question; selected: ChoiceKey | null; setSelected: (key: ChoiceKey) => void; result: boolean; confidence: Confidence; setConfidence: (value: Confidence) => void }) {
   const selectedChoice = question.choices.find(choice => choice.key === selected)
   const correctChoice = question.choices.find(choice => choice.key === question.correctAnswer)
+  const mistakeTag = selected ? inferMistakeTag(question, selected === question.correctAnswer, confidence) : undefined
   return (
     <div className="space-y-4">
       <section className="rounded-[24px] bg-white p-5 shadow-card dark:bg-white/5">
@@ -507,6 +572,7 @@ function QuestionScreen({ question, selected, setSelected, result, confidence, s
           </div>
           <AnswerRow label="あなたの解答" value={`${selected}：${selectedChoice?.text ?? ''}`} />
           <AnswerRow label="正解" value={`${question.correctAnswer}：${correctChoice?.text ?? ''}`} emphasis />
+          {mistakeTag && <div className="rounded-xl bg-amber-50 p-3 dark:bg-amber-500/10"><p className="text-[10px] font-bold text-amber-600 dark:text-amber-300">ミス傾向</p><p className="mt-1 text-sm font-bold">{mistakeTag}</p></div>}
           {selected !== question.correctAnswer && (
             <ExplanationBlock title="なぜ選んだ選択肢が違うか" icon={CircleHelp} text={question.explanation.wrongReasons[selected] ?? 'この選択肢は設問の条件を満たしません。正解の考え方と対比して整理しましょう。'} tone="text-rose-500" />
           )}
@@ -537,37 +603,57 @@ function ExplanationBlock({ title, icon: Icon, text, tone }: { title: string; ic
 
 function ReviewScreen({ history, onStart }: { history: AnswerHistory[]; onStart: (items: Question[], mode?: PracticeMode) => void }) {
   const latest = useMemo(() => getLatestAnswers(history), [history])
-  const stats = useMemo(() => getFieldStats(history), [history])
-  const weakFields = new Set(stats.filter(item => item.count > 0 && item.accuracy < 60).map(item => item.field))
+  const [filter, setFilter] = useState<'high' | 'medium-up' | 'wrong' | 'low-confidence' | 'unanswered' | 'field' | 'mistake'>('high')
+  const [field, setField] = useState(allFields[0] ?? '')
+  const [mistakeTag, setMistakeTag] = useState<MistakeTag>(mistakeTags[0])
+  const filtered = questions.filter(question => {
+    const answer = latest.get(question.id)
+    const priority = getReviewPriority(question.id, history)
+    if (filter === 'high') return priority === 'high'
+    if (filter === 'medium-up') return priority === 'high' || priority === 'medium'
+    if (filter === 'wrong') return answer?.isCorrect === false
+    if (filter === 'low-confidence') return answer?.confidence === 'low'
+    if (filter === 'unanswered') return !answer
+    if (filter === 'field') return question.field === field && priority !== null
+    return Boolean(answer && getAnswerMistakeTag(answer) === mistakeTag)
+  })
   const filters = [
-    { title: '不正解のみ', mode: 'wrong' as PracticeMode, description: '最後の解答が不正解だった問題', icon: X, items: questions.filter(question => latest.get(question.id)?.isCorrect === false), color: 'bg-rose-50 text-rose-600' },
-    { title: '自信なしのみ', mode: 'low-confidence' as PracticeMode, description: '自信なしで回答した問題', icon: CircleHelp, items: questions.filter(question => latest.get(question.id)?.confidence === 'low'), color: 'bg-amber-50 text-amber-600' },
-    { title: '苦手分野のみ', mode: 'field' as PracticeMode, description: '正答率60%未満の分野', icon: TrendingUp, items: questions.filter(question => weakFields.has(question.field)), color: 'bg-violet-50 text-violet-600' },
-    { title: '未回答のみ', mode: 'unanswered' as PracticeMode, description: 'まだ一度も解いていない問題', icon: Sparkles, items: questions.filter(question => !latest.has(question.id)), color: 'bg-sky-50 text-sky-600' },
-  ]
+    ['high', '優先度：高のみ'], ['medium-up', '優先度：中以上'], ['wrong', '不正解のみ'],
+    ['low-confidence', '自信なしのみ'], ['unanswered', '未回答のみ'], ['field', '分野別'], ['mistake', 'ミス傾向別'],
+  ] as const
 
   return (
     <div className="space-y-4">
       <section className="rounded-[24px] bg-ink p-5 text-white">
         <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-lime text-ink"><RotateCcw size={22} /></div><div><p className="text-[10px] font-bold text-lime">REVIEW</p><h2 className="font-bold">復習対象を絞り込む</h2></div></div>
-        <p className="mt-4 text-xs leading-relaxed text-white/60">直近の解答結果と自信度から、今取り組む問題を選べます。</p>
+        <p className="mt-4 text-xs leading-relaxed text-white/60">回答履歴から復習優先度とミス傾向を整理します。</p>
       </section>
-      {filters.map(({ title, description, icon: Icon, items, mode, color }) => (
-        <section key={title} className="rounded-[22px] bg-white p-4 shadow-sm dark:bg-white/5">
-          <div className="flex items-center gap-3"><div className={`grid size-10 place-items-center rounded-xl ${color}`}><Icon size={19} /></div><div className="min-w-0 flex-1"><h3 className="text-sm font-bold">{title}</h3><p className="mt-0.5 text-[10px] text-slate-400">{description}</p></div><span className="tabular text-sm font-bold">{items.length}問</span></div>
-          <button disabled={!items.length} onClick={() => onStart(items, mode)} className="mt-4 flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-ink text-xs font-bold text-white disabled:bg-slate-100 disabled:text-slate-400 dark:bg-lime dark:text-ink dark:disabled:bg-white/10 dark:disabled:text-slate-500">この条件で演習する<ChevronRight size={16} /></button>
-        </section>
-      ))}
+      <section className="rounded-[22px] bg-white p-4 shadow-sm dark:bg-white/5">
+        <div className="flex flex-wrap gap-2">{filters.map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`min-h-11 rounded-full px-3 text-[11px] font-bold ${filter === value ? 'bg-moss text-white dark:bg-lime dark:text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}>{label}</button>)}</div>
+        {filter === 'field' && <select aria-label="分野" value={field} onChange={event => setField(event.target.value)} className="mt-3 h-12 w-full rounded-xl border-0 bg-slate-100 px-3 text-xs font-bold dark:bg-white/10">{allFields.map(item => <option key={item}>{item}</option>)}</select>}
+        {filter === 'mistake' && <select aria-label="ミス傾向" value={mistakeTag} onChange={event => setMistakeTag(event.target.value as MistakeTag)} className="mt-3 h-12 w-full rounded-xl border-0 bg-slate-100 px-3 text-xs font-bold dark:bg-white/10">{mistakeTags.map(item => <option key={item}>{item}</option>)}</select>}
+      </section>
+      <section className="rounded-[22px] bg-white p-4 shadow-sm dark:bg-white/5">
+        <div className="flex items-center justify-between"><h3 className="font-bold">復習問題一覧</h3><span className="tabular text-sm font-bold">{filtered.length}問</span></div>
+        {filtered.length ? <ul className="mt-3 space-y-2">{filtered.map(question => { const priority = getReviewPriority(question.id, history) ?? 'low'; const answer = latest.get(question.id); const tag = answer && getAnswerMistakeTag(answer); return <li key={question.id} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${priorityClass[priority]}`}>復習優先度：{priorityLabel[priority]}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${fieldColor[question.field] ?? 'bg-slate-100'}`}>{question.field}</span>{tag && <span className="text-[9px] font-bold text-slate-400">{tag}</span>}</div><p className="mt-2 line-clamp-2 text-xs leading-relaxed">問{question.questionNumber} {question.questionText}</p></li> })}</ul> : <p className="mt-4 text-xs text-slate-400">この条件に該当する問題はありません。</p>}
+        <button disabled={!filtered.length} onClick={() => onStart(filtered, filter === 'wrong' ? 'wrong' : filter === 'low-confidence' ? 'low-confidence' : filter === 'unanswered' ? 'unanswered' : filter === 'field' ? 'field' : 'recommended')} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-xs font-bold text-white disabled:bg-slate-100 disabled:text-slate-400 dark:bg-lime dark:text-ink dark:disabled:bg-white/10 dark:disabled:text-slate-500">この条件で演習する<ChevronRight size={16} /></button>
+      </section>
     </div>
   )
 }
-
 function Analytics({ history }: { history: AnswerHistory[] }) {
   const data = useMemo(() => getFieldStats(history), [history])
+  const mistakeCounts = useMemo(() => getMistakeCounts(history), [history])
+  const topMistake = [...mistakeCounts].sort((a, b) => b.count - a.count)[0]
   const studyDays = new Set(history.map(answer => answerDateKey(answer.answeredAt))).size
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3"><SummaryCard icon={Flame} label="学習日数" value={`${studyDays}日`} /><SummaryCard icon={BookOpen} label="総回答数" value={`${history.length}問`} /></div>
+      <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
+        <div className="mb-4 flex items-center gap-2 font-bold"><Brain size={19} className="text-moss dark:text-lime" />ミス傾向サマリー</div>
+        <div className="grid grid-cols-2 gap-2">{mistakeCounts.map(item => <div key={item.tag} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">{item.tag}</p><p className="tabular mt-1 text-lg font-bold">{item.count}<span className="ml-1 text-[10px] text-slate-400">件</span></p></div>)}</div>
+        {topMistake?.count ? <p className="mt-4 rounded-xl bg-lime/30 p-3 text-xs font-bold leading-relaxed">{topMistake.tag === '用語理解不足' ? '用語理解不足が多めです。まずは用語の意味を整理しましょう' : topMistake.tag === '選択肢の比較ミス' ? '選択肢の比較ミスが多めです。消去法を意識しましょう' : `${topMistake.tag}が多めです。解説を確認して復習しましょう`}</p> : <p className="mt-4 text-xs text-slate-400">回答するとミス傾向が表示されます。</p>}
+      </section>
       <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
         <div className="mb-4 flex items-center gap-2 font-bold"><BarChart3 size={19} className="text-moss dark:text-lime" />分野別分析</div>
         <div className="space-y-3">
