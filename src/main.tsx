@@ -1,5 +1,6 @@
 import React from 'react'
 import { createRoot } from 'react-dom/client'
+import App from './App'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import './index.css'
 
@@ -29,34 +30,14 @@ window.addEventListener('unhandledrejection', (event) => {
   showBootError('Unhandled promise rejection', event.reason)
 })
 
-async function bootstrap() {
-  try {
-    const rootElement = document.getElementById('root')
-    if (!rootElement) {
-      showBootError('Root element was not found')
-      return
-    }
-
-    const { default: App } = await import('./App')
-
-    function AppBootMarker() {
-      React.useEffect(() => {
-        document.body.classList.add('app-mounted')
-      }, [])
-
-      return <App />
-    }
-
-    createRoot(rootElement).render(
-      <React.StrictMode>
-        <ErrorBoundary>
-          <AppBootMarker />
-        </ErrorBoundary>
-      </React.StrictMode>,
-    )
-  } catch (error) {
-    showBootError('Failed to bootstrap React app', error)
-  }
+const rootElement = document.getElementById('root')
+if (rootElement) {
+  createRoot(rootElement).render(
+    <React.StrictMode>
+      <ErrorBoundary>
+        <App />
+      </ErrorBoundary>
+    </React.StrictMode>,
+  )
+  document.body.classList.add('app-mounted')
 }
-
-void bootstrap()
