@@ -27,7 +27,7 @@ import { questions } from './data/questions'
 import { defaultSettings, loadHistory, loadSession, loadSettings, resetData, saveHistory, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, ChoiceKey, Confidence, MistakeTag, PracticeMode, PracticeSession, Question, ReviewPriority, Settings, Tab } from './types'
 
-const APP_VERSION = 'v1.4.1'
+const APP_VERSION = 'v1.4.2'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -720,7 +720,7 @@ function SettingsScreen({ value, onChange, onReset }: { value: Settings; onChang
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">学習データはこの端末のブラウザ内に保存されています。</p>
         {confirm ? <div className="mt-4 rounded-xl bg-rose-50 p-3"><p className="text-xs font-bold text-rose-600">本当にすべて削除しますか？</p><div className="mt-3 flex gap-2"><button onClick={() => setConfirm(false)} className="h-10 flex-1 rounded-lg bg-white text-xs font-bold">キャンセル</button><button onClick={() => { onReset(); setConfirm(false) }} className="h-10 flex-1 rounded-lg bg-rose-500 text-xs font-bold text-white">削除する</button></div></div> : <button onClick={() => setConfirm(true)} className="mt-4 h-11 w-full rounded-xl border border-rose-200 text-xs font-bold text-rose-500">学習データをリセット</button>}
       </div>
-      <div className="pb-3 text-center"><p className="text-xs font-bold text-slate-500">AP Study {APP_VERSION}</p><p className="mt-1 text-[10px] text-slate-400">Local data only</p></div>
+      <div className="pb-3 text-center"><p className="text-xs font-bold text-slate-500">AP Study {APP_VERSION}</p><p className="mt-1 text-[10px] text-slate-400">Boot guard enabled</p></div>
     </div>
   )
 }
