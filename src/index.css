@@ -1,6 +1,30 @@
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Noto+Sans+JP:wght@400;500;600;700;800&display=swap');
 @tailwind base; @tailwind components; @tailwind utilities;
-:root{font-family:'Noto Sans JP',sans-serif;color:#17201c;background:#e9ede9;font-synthesis:none}*{box-sizing:border-box}html{background:#e9ede9}body{margin:0;min-width:320px;min-height:100vh;-webkit-tap-highlight-color:transparent}button,a{touch-action:manipulation}.safe-top{padding-top:max(12px,env(safe-area-inset-top))}.safe-bottom{padding-bottom:max(10px,env(safe-area-inset-bottom))}.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{scrollbar-width:none}.tabular{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums}
+:root,
+[data-theme='light'] {
+  --color-bg: #f6f8f5;
+  --color-text-main: #17201c;
+  --color-text-sub: #5f6f7f;
+  --color-text-muted: #8a98aa;
+  --color-on-dark: #ffffff;
+}
+
+.dark,
+[data-theme='dark'] {
+  --color-bg: #101713;
+  --color-text-main: #ffffff;
+  --color-text-sub: #c9d3dc;
+  --color-text-muted: #94a3b8;
+  --color-on-dark: #ffffff;
+}
+
+:root{font-family:'Noto Sans JP',sans-serif;color:var(--color-text-main);background:#e9ede9;font-synthesis:none}*{box-sizing:border-box}html{background:#e9ede9}body{margin:0;min-width:320px;min-height:100vh;-webkit-tap-highlight-color:transparent}
+
+.app-shell {
+  color: var(--color-text-main);
+  background: var(--color-bg);
+}
+button,a{touch-action:manipulation}.safe-top{padding-top:max(12px,env(safe-area-inset-top))}.safe-bottom{padding-bottom:max(10px,env(safe-area-inset-bottom))}.no-scrollbar::-webkit-scrollbar{display:none}.no-scrollbar{scrollbar-width:none}.tabular{font-family:'DM Sans',sans-serif;font-variant-numeric:tabular-nums}
 
 
 .exam-date-input {

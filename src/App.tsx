@@ -29,7 +29,7 @@ import { questions } from './data/questions'
 import { defaultSettings, loadBookmarks, loadHistory, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, PracticeMode, PracticeSession, Question, ReviewPriority, Settings, Tab } from './types'
 
-const APP_VERSION = 'v1.7.0'
+const APP_VERSION = 'v1.7.1'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -314,7 +314,7 @@ function App() {
 
   return (
     <div className={safeSettings.theme === 'dark' ? 'dark bg-[#101713]' : ''}>
-      <div className="mx-auto min-h-screen max-w-[480px] bg-paper shadow-2xl dark:bg-[#101713] dark:text-white">
+      <div className="app-shell mx-auto min-h-screen max-w-[480px] bg-paper shadow-2xl dark:bg-[#101713]">
         <header className="safe-top fixed left-1/2 top-0 z-40 flex h-[76px] w-full max-w-[480px] -translate-x-1/2 items-center justify-between border-b border-black/5 bg-paper/95 px-5 backdrop-blur dark:bg-[#101713]/95">
           <div className="flex items-center gap-3">
             {session && (
