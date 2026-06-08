@@ -32,7 +32,7 @@ import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReview
 import { defaultSettings, loadBookmarks, loadHistory, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.0.0'
+const APP_VERSION = 'v2.0.1'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -652,12 +652,12 @@ function PracticeMenu({ history, bookmarks, mockExam, onStart, onStartMock, onRe
   const bookmarked = questions.filter(question => bookmarks.includes(question.id))
   const modes = [
     { title: '今日の復習', description: dueQuestions.length ? '期限切れを含む復習対象' : '今日の復習対象はありません', icon: RotateCcw, items: dueQuestions, mode: 'today-review' as PracticeMode, color: 'bg-lime text-ink' },
-    { title: '今日のおすすめ', description: recommendation.text, icon: Sparkles, items: recommendation.items, mode: recommendation.mode, color: 'bg-lime text-ink' },
+    { title: 'ランダム10問', description: '全分野からランダムに出題', icon: RotateCcw, items: shuffle(questions).slice(0, 10), mode: 'random-10' as PracticeMode, color: 'bg-violet-50 text-violet-600' },
+    { title: 'ブックマーク復習', description: bookmarked.length ? '保存した問題だけを出題' : 'ブックマークされた問題はありません', icon: Bookmark, items: bookmarked, mode: 'bookmarked' as PracticeMode, color: 'bg-yellow-50 text-yellow-600' },
     { title: '不正解復習', description: '直近で間違えた問題', icon: X, items: wrong, mode: 'wrong' as PracticeMode, color: 'bg-rose-50 text-rose-600' },
     { title: '自信なし復習', description: '自信なしで回答した問題', icon: CircleHelp, items: lowConfidence, mode: 'low-confidence' as PracticeMode, color: 'bg-amber-50 text-amber-600' },
-    { title: 'ブックマーク問題を復習', description: bookmarked.length ? '保存した問題だけを出題' : 'ブックマークされた問題はありません', icon: Bookmark, items: bookmarked, mode: 'bookmarked' as PracticeMode, color: 'bg-yellow-50 text-yellow-600' },
     { title: '未回答問題', description: 'まだ解いていない問題', icon: Lightbulb, items: unanswered, mode: 'unanswered' as PracticeMode, color: 'bg-sky-50 text-sky-600' },
-    { title: 'ランダム10問', description: '全分野からランダムに出題', icon: RotateCcw, items: shuffle(questions).slice(0, 10), mode: 'random-10' as PracticeMode, color: 'bg-violet-50 text-violet-600' },
+    { title: '今日のおすすめ', description: recommendation.text, icon: Sparkles, items: recommendation.items, mode: recommendation.mode, color: 'bg-lime text-ink' },
   ]
   return (
     <div className="space-y-4">
@@ -666,9 +666,8 @@ function PracticeMenu({ history, bookmarks, mockExam, onStart, onStartMock, onRe
         <h2 className="mt-2 text-xl font-bold">目的に合わせて演習</h2>
         <p className="mt-2 text-xs leading-relaxed text-white/60">復習状況や学習ペースに合う問題セットを選べます。</p>
       </section>
-      <QuestionList history={history} bookmarks={bookmarks} onStart={onStart} onToggleBookmark={onToggleBookmark} />
       <section className="rounded-[24px] border-2 border-moss bg-white p-5 shadow-sm dark:border-lime dark:bg-white/5">
-        <div className="flex items-start gap-3"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"><ClipboardCheck size={22} /></span><div><h3 className="font-bold">午前模試 {Math.min(80, morningQuestions.length)}問</h3><p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">本番形式で通し演習・制限時間 150分・最後に一括採点</p></div></div>
+        <div className="flex items-start gap-3"><span className="grid size-12 shrink-0 place-items-center rounded-xl bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"><ClipboardCheck size={22} /></span><div><p className="text-[10px] font-bold text-moss dark:text-lime">本番形式で開始</p><h3 className="mt-1 font-bold">午前模試 {Math.min(80, morningQuestions.length)}問</h3><p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">制限時間150分・最後に一括採点</p></div></div>
         {mockExam && !mockExam.finishedAt ? <div className="mt-4 rounded-xl bg-lime/30 p-3"><p className="text-xs font-bold">途中の午前模試があります</p><div className="mt-3 grid grid-cols-2 gap-2"><button onClick={onResumeMock} className="h-11 rounded-xl bg-ink text-xs font-bold text-white dark:bg-lime dark:text-ink">続きから再開</button><button onClick={onDiscardMock} className="h-11 rounded-xl bg-white text-xs font-bold text-rose-600 shadow-sm dark:bg-white/10">破棄して新しく開始</button></div></div> : mockExam?.finishedAt ? <button onClick={onResumeMock} className="mt-4 h-12 w-full rounded-xl bg-ink text-sm font-bold text-white dark:bg-lime dark:text-ink">前回の模試結果を見る</button> : <button onClick={onStartMock} disabled={!morningQuestions.length} className="mt-4 h-12 w-full rounded-xl bg-ink text-sm font-bold text-white disabled:opacity-50 dark:bg-lime dark:text-ink">午前模試を開始</button>}
         {mockExam && !mockExam.finishedAt && <button onClick={() => { onDiscardMock(); onStartMock() }} className="mt-2 h-10 w-full text-xs font-bold text-slate-500 dark:text-slate-300">破棄して新しく開始</button>}
       </section>
@@ -681,6 +680,7 @@ function PracticeMenu({ history, bookmarks, mockExam, onStart, onStartMock, onRe
           </button>
         ))}
       </section>
+      <QuestionList history={history} bookmarks={bookmarks} onStart={onStart} onToggleBookmark={onToggleBookmark} />
       <section className="rounded-[24px] bg-white p-5 dark:bg-white/5">
         <div className="mb-4 flex items-center gap-2 font-bold"><ListFilter size={19} className="text-moss dark:text-lime" />分野別演習</div>
         <div className="space-y-2">
@@ -711,6 +711,8 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
   const [searchKeyword, setSearchKeyword] = useState('')
   const [selectedField, setSelectedField] = useState('')
   const [selectedFilter, setSelectedFilter] = useState<QuestionListFilter>('all')
+  const [isOpen, setIsOpen] = useState(false)
+  const [visibleCount, setVisibleCount] = useState(20)
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const bookmarkSet = useMemo(() => new Set(Array.isArray(bookmarks) ? bookmarks : []), [bookmarks])
   const scheduleByQuestion = useMemo(() => new Map(buildReviewSchedule(questions, history).map(item => [item.questionId, item])), [history])
@@ -734,14 +736,22 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
     if (filter === 'bookmarked' && !bookmarkSet.has(question.id)) return false
     return true
   })
+  useEffect(() => setVisibleCount(20), [keyword, field, filter])
+  const visibleQuestions = filtered.slice(0, visibleCount)
   const formatExam = (question: Question) => {
     const year = question.examYear >= 2019 ? `R${question.examYear - 2018}` : String(question.examYear)
     return `${year}${question.examSeason === '春期' ? '春' : '秋'} ${question.examType === 'morning' ? '午前' : '午後'} 問${question.questionNumber}`
   }
   return (
     <section className="rounded-[24px] bg-white p-4 shadow-sm dark:bg-white/5">
-      <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-bold"><Search size={19} className="text-moss dark:text-lime" />問題一覧</div><span className="tabular text-xs font-bold text-slate-400">{filtered.length}問</span></div>
-      <label className="relative mt-4 block">
+      <button type="button" aria-expanded={isOpen} onClick={() => setIsOpen(current => !current)} className="flex w-full items-center gap-3 text-left">
+        <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-slate-100 text-moss dark:bg-white/10 dark:text-lime"><Search size={19} /></span>
+        <span className="min-w-0 flex-1"><span className="block font-bold">問題一覧を{isOpen ? '閉じる' : '開く'}</span><span className="mt-1 block text-[10px] text-slate-400">全{questions.length}問から検索・ブックマークできます</span></span>
+        <ChevronRight size={18} className={`shrink-0 text-slate-400 transition-transform ${isOpen ? 'rotate-90' : ''}`} />
+      </button>
+      {isOpen && <>
+      <div className="mt-4 flex items-center justify-between gap-3"><div className="flex items-center gap-2 text-sm font-bold"><ListFilter size={17} className="text-moss dark:text-lime" />検索・フィルタ</div><span className="tabular text-xs font-bold text-slate-400">{filtered.length}問</span></div>
+      <label className="relative mt-3 block">
         <Search size={17} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
         <input value={searchKeyword ?? ''} onChange={event => setSearchKeyword(event.target.value)} placeholder="問題文・選択肢・キーワードを検索" className="h-12 w-full rounded-xl border-0 bg-slate-100 pl-10 pr-3 text-sm outline-none ring-moss focus:ring-2 dark:bg-white/10" />
       </label>
@@ -754,7 +764,7 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
       </div>
       {filtered.length ? (
         <ul className="mt-4 space-y-2">
-          {filtered.map(question => {
+          {visibleQuestions.map(question => {
             const answer = latest.get(question.id)
             const bookmarked = bookmarkSet.has(question.id)
             const review = scheduleByQuestion.get(question.id)
@@ -772,7 +782,9 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
             )
           })}
         </ul>
-      ) : <p className="mt-4 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-400 dark:bg-white/5">条件に一致する問題はありません。</p>}
+      ) : <p className="mt-4 rounded-xl bg-slate-50 p-4 text-center text-xs text-slate-400 dark:bg-white/5">条件に一致する問題がありません</p>}
+      {visibleCount < filtered.length && <button type="button" onClick={() => setVisibleCount(count => count + 20)} className="mt-4 h-12 w-full rounded-xl border border-slate-200 text-xs font-bold text-moss dark:border-white/10 dark:text-lime">さらに表示</button>}
+      </>}
     </section>
   )
 }
