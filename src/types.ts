@@ -5,7 +5,7 @@ export type Confidence = 'high' | 'normal' | 'low'
 export type MistakeTag = '用語理解不足' | '問題文の読み落とし' | '選択肢の比較ミス' | '計算ミス' | '暗記不足' | '知識の取り違え'
 export type ReviewPriority = 'high' | 'medium' | 'low'
 export type Tab = 'home' | 'practice' | 'review' | 'analytics' | 'settings'
-export type PracticeMode = 'recommended' | 'field' | 'wrong' | 'low-confidence' | 'unanswered' | 'random-10' | 'mock-exam' | 'bookmarked' | 'single'
+export type PracticeMode = 'recommended' | 'today-review' | 'field' | 'wrong' | 'low-confidence' | 'unanswered' | 'random-10' | 'mock-exam' | 'bookmarked' | 'single'
 
 export interface Choice {
   key: ChoiceKey
@@ -50,6 +50,16 @@ export interface AnswerHistory {
   elapsedSeconds: number
   answeredAt: string
   mistakeTag?: MistakeTag
+}
+
+export interface ReviewScheduleItem {
+  questionId: string
+  nextReviewDate: string
+  priority: ReviewPriority
+  reason: string
+  lastAnsweredAt?: string
+  wrongStreak: number
+  correctStreak: number
 }
 
 export interface Settings {
