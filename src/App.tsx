@@ -23,16 +23,17 @@ import {
   ShieldCheck,
   Sparkles,
   Target,
+  Trash2,
   TrendingUp,
   X,
 } from 'lucide-react'
 import { questions } from './data/questions'
 import { createMorningMockExam, formatMockExamTime, getMockExamRemainingSeconds } from './lib/mockExam'
 import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReviewPriorityForQuestion, getTodayDateString, getUpcomingReviewItems } from './lib/reviewSchedule'
-import { defaultSettings, loadBookmarks, loadHistory, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
-import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
+import { clearMockExamResults, defaultSettings, deleteMockExamResult, loadBookmarks, loadHistory, loadMockExamResults, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamResults, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
+import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamResult, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.0.1'
+const APP_VERSION = 'v2.1.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -193,6 +194,79 @@ function shuffle(items: Question[]) {
   return [...items].sort(() => Math.random() - 0.5)
 }
 
+function buildMockExamResult(session: MockExamSession): MockExamResult | null {
+  if (!session.finishedAt) return null
+  const sessionQuestions = session.questionIds.map(id => questions.find(question => question.id === id)).filter((question): question is Question => Boolean(question))
+  if (!sessionQuestions.length || sessionQuestions.length !== session.questionIds.length) return null
+  const wrongQuestionIds: string[] = []
+  const unansweredQuestionIds: string[] = []
+  const lowConfidenceQuestionIds: string[] = []
+  const markedQuestionIds: string[] = []
+  let correctCount = 0
+  const fieldStats: MockExamResult['fieldStats'] = {}
+  sessionQuestions.forEach(question => {
+    const answer = session.answers[question.id]
+    const stat = fieldStats[question.field] ?? { total: 0, correct: 0, accuracyRate: 0 }
+    stat.total += 1
+    if (!answer?.selectedAnswer) unansweredQuestionIds.push(question.id)
+    else if (answer.selectedAnswer === question.correctAnswer) { correctCount += 1; stat.correct += 1 }
+    else wrongQuestionIds.push(question.id)
+    if (answer?.confidence === 'low') lowConfidenceQuestionIds.push(question.id)
+    if (answer?.marked) markedQuestionIds.push(question.id)
+    fieldStats[question.field] = stat
+  })
+  Object.values(fieldStats).forEach(stat => { stat.accuracyRate = stat.total ? Math.round((stat.correct / stat.total) * 1000) / 10 : 0 })
+  const totalQuestions = session.questionIds.length
+  const accuracyRate = Math.round((correctCount / totalQuestions) * 1000) / 10
+  const startedAt = new Date(session.startedAt).getTime()
+  const finishedAt = new Date(session.finishedAt).getTime()
+  return {
+    resultId: session.sessionId,
+    startedAt: session.startedAt,
+    finishedAt: session.finishedAt,
+    totalQuestions,
+    correctCount,
+    wrongCount: wrongQuestionIds.length,
+    unansweredCount: unansweredQuestionIds.length,
+    accuracyRate,
+    passed: accuracyRate >= 60,
+    elapsedSeconds: Math.max(0, Math.round((finishedAt - startedAt) / 1000)),
+    fieldStats,
+    wrongQuestionIds,
+    unansweredQuestionIds,
+    lowConfidenceQuestionIds,
+    markedQuestionIds,
+  }
+}
+
+function getMockWeakFields(results: MockExamResult[], limit = 3) {
+  const totals = new Map<string, { total: number; correct: number; wrong: number }>()
+  results.slice(-3).forEach(result => Object.entries(result.fieldStats).forEach(([field, stat]) => {
+    const current = totals.get(field) ?? { total: 0, correct: 0, wrong: 0 }
+    current.total += stat.total
+    current.correct += stat.correct
+    current.wrong += stat.total - stat.correct
+    totals.set(field, current)
+  }))
+  return [...totals.entries()].map(([field, stat]) => ({
+    field,
+    accuracyRate: stat.total ? Math.round((stat.correct / stat.total) * 1000) / 10 : 0,
+    wrong: stat.wrong,
+  })).sort((a, b) => a.accuracyRate - b.accuracyRate || b.wrong - a.wrong).slice(0, limit)
+}
+
+function formatResultDate(value: string) {
+  const date = new Date(value)
+  return Number.isFinite(date.getTime()) ? date.toLocaleString('ja-JP', { year: 'numeric', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '日時不明'
+}
+
+function formatElapsed(seconds: number) {
+  const safe = Math.max(0, Math.round(seconds))
+  const hours = Math.floor(safe / 3600)
+  const minutes = Math.floor((safe % 3600) / 60)
+  return hours ? `${hours}時間${minutes}分` : `${minutes}分`
+}
+
 function App() {
   const [tab, setTab] = useState<Tab>('home')
   const [history, setHistory] = useState<AnswerHistory[]>(loadHistory)
@@ -200,6 +274,7 @@ function App() {
   const [bookmarks, setBookmarks] = useState<BookmarkStore>(loadBookmarks)
   const [session, setSession] = useState<PracticeSession | null>(loadSession)
   const [mockExam, setMockExam] = useState<MockExamSession | null>(loadMockExamSession)
+  const [mockExamResults, setMockExamResults] = useState<MockExamResult[]>(loadMockExamResults)
   const [mockExamOpen, setMockExamOpen] = useState(false)
   const safeHistory = Array.isArray(history) ? history : []
   const safeSettings = settings ?? defaultSettings
@@ -225,6 +300,17 @@ function App() {
   useEffect(() => saveSettings(safeSettings), [safeSettings])
   useEffect(() => saveSession(session), [session])
   useEffect(() => saveMockExamSession(mockExam), [mockExam])
+  useEffect(() => {
+    if (!mockExam?.finishedAt) return
+    const savedResult = buildMockExamResult(mockExam)
+    if (!savedResult) return
+    setMockExamResults(current => {
+      if (current.some(result => result.resultId === savedResult.resultId)) return current
+      const next = [...current, savedResult]
+      saveMockExamResults(next)
+      return next
+    })
+  }, [mockExam])
   useEffect(() => { if (session) setTab('practice') }, [])
   useEffect(() => {
     const savedAnswer = session?.answers.find(answer => answer.questionId === currentQuestionId)
@@ -348,13 +434,27 @@ function App() {
       } satisfies AnswerHistory]
     })
     setHistory(current => [...(Array.isArray(current) ? current : []), ...entries])
-    setMockExam(current => current && ({ ...current, finishedAt }))
+    const finishedSession = { ...mockExam, finishedAt }
+    const savedResult = buildMockExamResult(finishedSession)
+    if (savedResult) setMockExamResults(current => {
+      if (current.some(result => result.resultId === savedResult.resultId)) return current
+      const next = [...current, savedResult]
+      saveMockExamResults(next)
+      return next
+    })
+    setMockExam(finishedSession)
     setMockExamOpen(true)
   }
 
   const startMockReview = (items: Question[], mode: PracticeMode) => {
     setMockExam(null)
     setMockExamOpen(false)
+    startPractice(items, mode)
+  }
+
+  const startSavedMockReview = (questionIds: string[], mode: PracticeMode) => {
+    const items = questionIds.map(id => questions.find(question => question.id === id)).filter((question): question is Question => Boolean(question))
+    if (!items.length) { window.alert('対象問題はありません'); return }
     startPractice(items, mode)
   }
 
@@ -393,7 +493,7 @@ function App() {
         </header>
 
         <main ref={contentRef} className={`min-w-0 max-w-full overflow-x-hidden px-4 pt-[92px] ${session || mockExamOpen ? 'pb-[138px]' : 'pb-[104px]'}`}>
-          {tab === 'home' && <HomeScreen history={safeHistory} onStart={startPractice} onReview={() => setTab('review')} />}
+          {tab === 'home' && <HomeScreen history={safeHistory} mockExamResults={mockExamResults} onStart={startPractice} onReview={() => setTab('review')} onMockHistory={() => setTab('analytics')} />}
           {tab === 'practice' && (mockExamOpen && mockExam ? (
             <MockExamFlow
               session={mockExam}
@@ -420,7 +520,7 @@ function App() {
             </>
           ) : <PracticeMenu history={safeHistory} bookmarks={safeBookmarks} mockExam={mockExam} onStart={startPractice} onStartMock={startMockExam} onResumeMock={() => setMockExamOpen(true)} onDiscardMock={() => setMockExam(null)} onToggleBookmark={toggleBookmark} />)}
           {tab === 'review' && <ReviewScreen history={safeHistory} bookmarks={safeBookmarks} onStart={startPractice} />}
-          {tab === 'analytics' && <Analytics history={safeHistory} />}
+          {tab === 'analytics' && <Analytics history={safeHistory} mockExamResults={mockExamResults} onReview={startSavedMockReview} onDelete={resultId => setMockExamResults(deleteMockExamResult(resultId))} onClear={() => setMockExamResults(clearMockExamResults())} />}
           {tab === 'settings' && (
             <SettingsScreen
               value={safeSettings}
@@ -431,6 +531,7 @@ function App() {
                 setSettings(loadSettings())
                 setBookmarks([])
                 setMockExam(null)
+                setMockExamResults([])
                 setMockExamOpen(false)
               }}
             />
@@ -465,7 +566,7 @@ function App() {
   )
 }
 
-function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; onStart: (items?: Question[], mode?: PracticeMode) => void; onReview: () => void }) {
+function HomeScreen({ history, mockExamResults, onStart, onReview, onMockHistory }: { history: AnswerHistory[]; mockExamResults: MockExamResult[]; onStart: (items?: Question[], mode?: PracticeMode) => void; onReview: () => void; onMockHistory: () => void }) {
   const stats = useMemo(() => getFieldStats(history), [history])
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const accuracy = history.length ? Math.round((history.filter(answer => answer.isCorrect).length / history.length) * 100) : 0
@@ -480,6 +581,9 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
   const weak = [...ranked].sort((a, b) => a.accuracy - b.accuracy || b.incorrect - a.incorrect).slice(0, 3)
   const strong = [...ranked].sort((a, b) => b.accuracy - a.accuracy || b.count - a.count).slice(0, 3)
   const recommendation = useMemo(() => getRecommendation(history), [history])
+  const latestMock = mockExamResults[mockExamResults.length - 1]
+  const mockWeakField = getMockWeakFields(mockExamResults, 1)[0]
+  const mockPassTarget = latestMock ? Math.ceil(latestMock.totalQuestions * 0.6) : 0
 
   return (
     <div className="space-y-5">
@@ -509,6 +613,12 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
       <section className="grid grid-cols-2 gap-2 rounded-[20px] bg-white p-3 text-center shadow-sm dark:bg-white/5">
         <Metric label="優先度 高" value={`${highPriorityCount}問`} />
         <Metric label="期限切れ" value={`${overdueCount}問`} />
+      </section>
+
+      <section className="rounded-[24px] bg-white p-5 shadow-sm dark:bg-white/5">
+        <div className="flex items-center gap-2 font-bold"><ClipboardCheck size={19} className="text-moss dark:text-lime" />午前模試サマリー</div>
+        {latestMock ? <><div className="mt-4 grid grid-cols-2 gap-3"><Metric label="最新模試" value={`${latestMock.accuracyRate}%`} /><Metric label="合格目安まで" value={latestMock.passed ? 'クリア' : `あと${Math.max(0, mockPassTarget - latestMock.correctCount)}問`} /></div><p className="mt-4 rounded-xl bg-lime/30 p-3 text-xs font-bold leading-relaxed">次は{mockWeakField?.field ?? '不正解問題'}を復習しましょう</p></> : <p className="mt-4 text-xs leading-relaxed text-slate-500 dark:text-slate-300">午前模試を受けて実力を確認しましょう。</p>}
+        <button onClick={onMockHistory} className="mt-4 flex h-11 w-full items-center justify-center gap-1 rounded-xl border border-moss text-xs font-bold text-moss dark:border-lime dark:text-lime">模試履歴を見る<ChevronRight size={16} /></button>
       </section>
 
       <section className="rounded-[24px] bg-white p-5 shadow-sm dark:bg-white/5">
@@ -972,7 +1082,37 @@ function ReviewScreen({ history, bookmarks, onStart }: { history: AnswerHistory[
     </div>
   )
 }
-function Analytics({ history }: { history: AnswerHistory[] }) {
+function MockExamHistory({ results, onReview, onDelete, onClear }: { results: MockExamResult[]; onReview: (questionIds: string[], mode: PracticeMode) => void; onDelete: (resultId: string) => void; onClear: () => void }) {
+  const ordered = [...results].sort((a, b) => new Date(a.finishedAt).getTime() - new Date(b.finishedAt).getTime())
+  const latest = ordered[ordered.length - 1]
+  const displayed = ordered.slice(-10).reverse()
+  const average = ordered.length ? Math.round((ordered.reduce((sum, result) => sum + result.accuracyRate, 0) / ordered.length) * 10) / 10 : 0
+  const best = ordered.length ? Math.max(...ordered.map(result => result.accuracyRate)) : 0
+  const weakFields = getMockWeakFields(ordered)
+  const latestWeakFields = latest ? Object.entries(latest.fieldStats).sort(([, a], [, b]) => a.accuracyRate - b.accuracyRate || (b.total - b.correct) - (a.total - a.correct)).slice(0, 3) : []
+  return (
+    <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
+      <div className="flex items-center justify-between gap-3"><div className="flex items-center gap-2 font-bold"><ClipboardCheck size={19} className="text-moss dark:text-lime" />模試履歴</div>{ordered.length > 0 && <button onClick={() => { if (window.confirm('模試履歴をすべて削除しますか？')) onClear() }} className="text-[10px] font-bold text-rose-500">全件削除</button>}</div>
+      {latest ? <>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"><Metric label="模試回数" value={`${ordered.length}回`} /><Metric label="最新" value={`${latest.accuracyRate}%`} /><Metric label="最高" value={`${best}%`} /><Metric label="平均" value={`${average}%`} /><Metric label="合格目安クリア" value={`${ordered.filter(result => result.passed).length}回`} /><Metric label="直近3回" value={ordered.slice(-3).map(result => `${result.accuracyRate}%`).join(' / ')} /></div>
+        <div className="mt-5"><p className="text-xs font-bold">成績推移（最新10回）</p><div className="mt-3 flex h-32 items-end gap-2 rounded-xl bg-slate-50 p-3 dark:bg-white/5">{ordered.slice(-10).map((result, index) => <div key={result.resultId} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1"><span className="tabular text-[9px] font-bold">{result.accuracyRate}%</span><div className={`w-full rounded-t-md ${result.passed ? 'bg-moss dark:bg-lime' : 'bg-rose-400'}`} style={{ height: `${Math.max(8, result.accuracyRate)}%` }} /><span className="text-[8px] text-slate-400">{Math.max(1, ordered.length - Math.min(10, ordered.length) + index + 1)}回</span></div>)}</div></div>
+        <div className="mt-5"><p className="text-xs font-bold">最新模試の弱点分野 TOP3</p><div className="mt-2 flex flex-wrap gap-2">{latestWeakFields.map(([field, stat]) => <span key={field} className="rounded-full bg-rose-50 px-3 py-2 text-[10px] font-bold text-rose-700 dark:bg-rose-500/20 dark:text-rose-200">{field} {stat.accuracyRate}%</span>)}</div></div>
+        <div className="mt-5 rounded-xl bg-lime/20 p-3"><p className="text-xs font-bold">履歴から見た復習おすすめ</p>{weakFields.map(field => <p key={field.field} className="mt-2 text-[11px] text-slate-600 dark:text-slate-300">{field.field}：平均正答率 {field.accuracyRate}%{field.accuracyRate < 60 ? '・重点復習がおすすめ' : ''}</p>)}</div>
+        <div className="mt-5 space-y-3">{displayed.map(result => {
+          const cardWeak = Object.entries(result.fieldStats).sort(([, a], [, b]) => a.accuracyRate - b.accuracyRate).slice(0, 3)
+          return <article key={result.resultId} className="rounded-2xl border border-slate-100 p-4 dark:border-white/10"><div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold">{formatResultDate(result.finishedAt)}</p><p className="tabular mt-1 text-2xl font-bold">{result.accuracyRate}%</p></div><div className="flex items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${result.passed ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-200' : 'bg-rose-50 text-rose-700 dark:bg-rose-500/20 dark:text-rose-200'}`}>{result.passed ? '合格目安クリア' : '未達'}</span><button aria-label="この模試履歴を削除" onClick={() => { if (window.confirm('この模試履歴を削除しますか？')) onDelete(result.resultId) }} className="grid size-9 place-items-center rounded-lg text-rose-500"><Trash2 size={16} /></button></div></div><div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-500 dark:text-slate-300"><span>正解 {result.correctCount} / {result.totalQuestions}問</span><span>所要時間 {formatElapsed(result.elapsedSeconds)}</span></div><div className="mt-3 flex flex-wrap gap-1.5">{cardWeak.map(([field, stat]) => <span key={field} className="rounded-full bg-slate-100 px-2 py-1 text-[9px] font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">{field} {stat.accuracyRate}%</span>)}</div><div className="mt-4 grid grid-cols-2 gap-2"><HistoryReviewButton label="間違い" count={result.wrongQuestionIds.length} onClick={() => onReview(result.wrongQuestionIds, 'wrong')} /><HistoryReviewButton label="未回答" count={result.unansweredQuestionIds.length} onClick={() => onReview(result.unansweredQuestionIds, 'unanswered')} /><HistoryReviewButton label="自信なし" count={result.lowConfidenceQuestionIds.length} onClick={() => onReview(result.lowConfidenceQuestionIds, 'low-confidence')} /><HistoryReviewButton label="見直し" count={result.markedQuestionIds.length} onClick={() => onReview(result.markedQuestionIds, 'recommended')} /></div></article>
+        })}</div>
+        {ordered.length > displayed.length && <p className="mt-3 text-center text-[10px] text-slate-400">最新10件を表示しています</p>}
+      </> : <p className="mt-4 text-xs leading-relaxed text-slate-500 dark:text-slate-300">まだ模試履歴はありません。午前模試を受けると、成績推移と弱点分野が表示されます。</p>}
+    </section>
+  )
+}
+
+function HistoryReviewButton({ label, count, onClick }: { label: string; count: number; onClick: () => void }) {
+  return <button onClick={onClick} className="min-h-11 rounded-xl border border-slate-200 px-2 text-[10px] font-bold dark:border-white/10">{label}を復習（{count}問）</button>
+}
+
+function Analytics({ history, mockExamResults, onReview, onDelete, onClear }: { history: AnswerHistory[]; mockExamResults: MockExamResult[]; onReview: (questionIds: string[], mode: PracticeMode) => void; onDelete: (resultId: string) => void; onClear: () => void }) {
   const data = useMemo(() => getFieldStats(history), [history])
   const mistakeCounts = useMemo(() => getMistakeCounts(history), [history])
   const schedule = useMemo(() => buildReviewSchedule(questions, history), [history])
@@ -985,6 +1125,7 @@ function Analytics({ history }: { history: AnswerHistory[] }) {
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3"><SummaryCard icon={Flame} label="学習日数" value={`${studyDays}日`} /><SummaryCard icon={BookOpen} label="総回答数" value={`${history.length}問`} /></div>
+      <MockExamHistory results={mockExamResults} onReview={onReview} onDelete={onDelete} onClear={onClear} />
       <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
         <div className="mb-4 flex items-center gap-2 font-bold"><RotateCcw size={19} className="text-moss dark:text-lime" />復習スケジュール</div>
         <div className="grid grid-cols-2 gap-2"><Metric label="今日" value={`${dueItems.length}問`} /><Metric label="期限切れ" value={`${dueItems.filter(item => item.nextReviewDate < today).length}問`} /><Metric label="7日以内" value={`${upcomingItems.length}問`} /><Metric label="優先度 高" value={`${schedule.filter(item => item.priority === 'high').length}問`} /></div>

@@ -93,6 +93,29 @@ export interface PracticeSession {
   answers: SessionAnswer[]
 }
 
+export interface MockExamFieldStat {
+  total: number
+  correct: number
+  accuracyRate: number
+}
+
+export interface MockExamResult {
+  resultId: string
+  startedAt: string
+  finishedAt: string
+  totalQuestions: number
+  correctCount: number
+  wrongCount: number
+  unansweredCount: number
+  accuracyRate: number
+  passed: boolean
+  elapsedSeconds: number
+  fieldStats: Record<string, MockExamFieldStat>
+  wrongQuestionIds: string[]
+  unansweredQuestionIds: string[]
+  lowConfidenceQuestionIds: string[]
+  markedQuestionIds: string[]
+}
 
 export interface MockExamAnswer {
   selectedAnswer?: ChoiceKey

@@ -1,5 +1,5 @@
 import { resolveQuestionId } from '../data/questions'
-import type { AnswerHistory, BookmarkStore, MockExamSession, PracticeSession, Settings } from '../types'
+import type { AnswerHistory, BookmarkStore, MockExamResult, MockExamSession, PracticeSession, Settings } from '../types'
 
 const HISTORY_KEY = 'ap-study-history-v1'
 const SETTINGS_KEY = 'ap-study-settings-v1'
@@ -7,6 +7,7 @@ const SESSION_KEY = 'ap-study-current-session-v1'
 const BOOKMARKS_KEY = 'ap-study-bookmarks-v1'
 const SECONDARY_SESSION_KEY = 'ap-study-current-session-v2'
 const MOCK_EXAM_SESSION_KEY = 'ap-study-mock-exam-session-v1'
+const MOCK_EXAM_RESULTS_KEY = 'ap-study-mock-exam-results-v1'
 export const defaultSettings: Settings = { examDate: '2026-11-15', dailyMinutes: 30, afternoonFields: ['情報セキュリティ', 'ネットワーク'], theme: 'light' }
 const practiceModes = new Set(['recommended', 'today-review', 'field', 'wrong', 'low-confidence', 'unanswered', 'random-10', 'mock-exam', 'bookmarked', 'single'])
 const choiceKeys = new Set(['ア', 'イ', 'ウ', 'エ'])
@@ -68,6 +69,32 @@ const isMockExamSession = (value: unknown): value is MockExamSession => {
     && Number.isInteger(value.durationSeconds)
     && Number(value.durationSeconds) > 0
     && answersAreValid
+}
+
+const isStringArray = (value: unknown): value is string[] => Array.isArray(value) && value.every(item => typeof item === 'string' && Boolean(item))
+
+const isMockExamResult = (value: unknown): value is MockExamResult => {
+  if (!isRecord(value) || !isRecord(value.fieldStats)) return false
+  const fieldStatsAreValid = Object.values(value.fieldStats).every(stat => isRecord(stat)
+    && Number.isInteger(stat.total) && Number(stat.total) >= 0
+    && Number.isInteger(stat.correct) && Number(stat.correct) >= 0 && Number(stat.correct) <= Number(stat.total)
+    && isNonNegativeNumber(stat.accuracyRate) && Number(stat.accuracyRate) <= 100)
+  return typeof value.resultId === 'string' && Boolean(value.resultId)
+    && typeof value.startedAt === 'string' && Number.isFinite(new Date(value.startedAt).getTime())
+    && typeof value.finishedAt === 'string' && Number.isFinite(new Date(value.finishedAt).getTime())
+    && Number.isInteger(value.totalQuestions) && Number(value.totalQuestions) > 0
+    && Number.isInteger(value.correctCount) && Number(value.correctCount) >= 0
+    && Number.isInteger(value.wrongCount) && Number(value.wrongCount) >= 0
+    && Number.isInteger(value.unansweredCount) && Number(value.unansweredCount) >= 0
+    && Number(value.correctCount) + Number(value.wrongCount) + Number(value.unansweredCount) === Number(value.totalQuestions)
+    && isNonNegativeNumber(value.accuracyRate) && Number(value.accuracyRate) <= 100
+    && typeof value.passed === 'boolean'
+    && isNonNegativeNumber(value.elapsedSeconds)
+    && fieldStatsAreValid
+    && isStringArray(value.wrongQuestionIds)
+    && isStringArray(value.unansweredQuestionIds)
+    && isStringArray(value.lowConfidenceQuestionIds)
+    && isStringArray(value.markedQuestionIds)
 }
 
 const isAnswerHistory = (value: unknown): value is AnswerHistory => isRecord(value)
@@ -159,6 +186,7 @@ export const resetData = () => {
     localStorage.removeItem(HISTORY_KEY)
     localStorage.removeItem(SETTINGS_KEY)
     localStorage.removeItem(BOOKMARKS_KEY)
+    localStorage.removeItem(MOCK_EXAM_RESULTS_KEY)
   } catch { /* Storage may be unavailable in restricted browser contexts. */ }
   resetCurrentSession()
   resetMockExamSession()
@@ -193,4 +221,48 @@ export const saveMockExamSession = (value: MockExamSession | null) => {
 
 export const resetMockExamSession = () => {
   try { localStorage.removeItem(MOCK_EXAM_SESSION_KEY) } catch { /* Storage may be unavailable in restricted browser contexts. */ }
+}
+
+export const loadMockExamResults = (): MockExamResult[] => {
+  try {
+    const value: unknown = JSON.parse(localStorage.getItem(MOCK_EXAM_RESULTS_KEY) || '[]')
+    if (!Array.isArray(value)) return []
+    const seen = new Set<string>()
+    return value.filter(isMockExamResult).filter(result => {
+      if (seen.has(result.resultId)) return false
+      seen.add(result.resultId)
+      return true
+    }).map(result => ({
+      ...result,
+      wrongQuestionIds: result.wrongQuestionIds.map(resolveQuestionId),
+      unansweredQuestionIds: result.unansweredQuestionIds.map(resolveQuestionId),
+      lowConfidenceQuestionIds: result.lowConfidenceQuestionIds.map(resolveQuestionId),
+      markedQuestionIds: result.markedQuestionIds.map(resolveQuestionId),
+    }))
+  } catch {
+    return []
+  }
+}
+
+export const saveMockExamResults = (results: MockExamResult[]) => {
+  try { localStorage.setItem(MOCK_EXAM_RESULTS_KEY, JSON.stringify(Array.isArray(results) ? results.filter(isMockExamResult) : [])) } catch { /* Storage may be unavailable or full. */ }
+}
+
+export const addMockExamResult = (result: MockExamResult) => {
+  const results = loadMockExamResults()
+  if (!isMockExamResult(result) || results.some(item => item.resultId === result.resultId)) return results
+  const next = [...results, result]
+  saveMockExamResults(next)
+  return next
+}
+
+export const deleteMockExamResult = (resultId: string) => {
+  const next = loadMockExamResults().filter(result => result.resultId !== resultId)
+  saveMockExamResults(next)
+  return next
+}
+
+export const clearMockExamResults = () => {
+  saveMockExamResults([])
+  return [] as MockExamResult[]
 }
