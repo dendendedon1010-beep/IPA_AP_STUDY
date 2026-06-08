@@ -26,10 +26,11 @@ import {
   X,
 } from 'lucide-react'
 import { questions } from './data/questions'
+import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReviewPriorityForQuestion, getTodayDateString, getUpcomingReviewItems } from './lib/reviewSchedule'
 import { defaultSettings, loadBookmarks, loadHistory, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveSession, saveSettings } from './lib/storage'
-import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, PracticeMode, PracticeSession, Question, ReviewPriority, Settings, Tab } from './types'
+import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v1.8.0'
+const APP_VERSION = 'v1.9.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -58,7 +59,7 @@ const priorityClass: Record<ReviewPriority, string> = {
   medium: 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300',
   low: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-300',
 }
-const todayKey = () => new Date().toLocaleDateString('sv-SE')
+const todayKey = getTodayDateString
 const answerDateKey = (value: string) => new Date(value).toLocaleDateString('sv-SE')
 
 function getSafeHistory(history: unknown): AnswerHistory[] {
@@ -125,15 +126,18 @@ function getAnswerMistakeTag(answer: Pick<AnswerHistory, 'questionId' | 'isCorre
 }
 
 function getReviewPriority(questionId: string, history: AnswerHistory[]): ReviewPriority | null {
-  const answers = getSafeHistory(history).filter(answer => answer.questionId === questionId)
-  if (!answers.length) return 'low'
-  const latest = answers[answers.length - 1]
-  const incorrectCount = answers.filter(answer => !answer.isCorrect).length
-  if (!latest.isCorrect || incorrectCount >= 2) return 'high'
-  if (incorrectCount > 0) return 'medium'
-  if (latest.confidence === 'low') return 'low'
-  if (answers.slice(0, -1).some(answer => answer.confidence === 'low')) return 'medium'
-  return null
+  return getReviewPriorityForQuestion(questionId, history)
+}
+
+function formatReviewDate(dateString: string, today = todayKey()) {
+  const distance = getReviewDayDistance(dateString, today)
+  if (distance === 0) return '今日'
+  if (distance === 1) return '明日'
+  return dateString.replace(/-/g, '/')
+}
+
+function questionsForSchedule(items: ReviewScheduleItem[]) {
+  return items.map(item => questions.find(question => question.id === item.questionId)).filter((question): question is Question => Boolean(question))
 }
 
 function getMistakeCounts(history: AnswerHistory[]) {
@@ -150,7 +154,8 @@ function getConsecutiveWrongField(history: AnswerHistory[]) {
 
 function getRecommendation(history: AnswerHistory[]) {
   const safeHistory = getSafeHistory(history)
-  const highPriority = questions.filter(question => getReviewPriority(question.id, safeHistory) === 'high')
+  const schedule = buildReviewSchedule(questions, safeHistory)
+  const highPriority = questionsForSchedule(schedule.filter(item => item.priority === 'high'))
   if (highPriority.length) return { text: `復習優先度 高 の問題が${highPriority.length}問あります`, items: highPriority.slice(0, 5), mode: 'recommended' as PracticeMode }
   const consecutiveWrongField = getConsecutiveWrongField(safeHistory)
   if (consecutiveWrongField) {
@@ -310,7 +315,7 @@ function App() {
     if (id !== 'practice') leaveSession()
   }
 
-  const title = session?.finishedAt ? '演習結果' : session ? (session.mode === 'mock-exam' ? '模擬試験モード' : session.mode === 'single' ? '問題詳細' : '午前問題 演習') : nav.find(item => item.id === tab)?.label ?? ''
+  const title = session?.finishedAt ? '演習結果' : session ? (session.mode === 'mock-exam' ? '模擬試験モード' : session.mode === 'single' ? '問題詳細' : session.mode === 'today-review' ? '今日の復習' : '午前問題 演習') : nav.find(item => item.id === tab)?.label ?? ''
 
   return (
     <div className={safeSettings.theme === 'dark' ? 'dark bg-[#101713]' : ''}>
@@ -354,7 +359,7 @@ function App() {
               <QuestionScreen question={currentQuestion} selected={selected} setSelected={setSelected} result={result} confidence={confidence} setConfidence={setConfidence} bookmarked={safeBookmarks.includes(currentQuestion.id)} onToggleBookmark={() => toggleBookmark(currentQuestion.id)} />
             </>
           ) : <PracticeMenu history={safeHistory} bookmarks={safeBookmarks} onStart={startPractice} onToggleBookmark={toggleBookmark} />)}
-          {tab === 'review' && <ReviewScreen history={safeHistory} onStart={startPractice} />}
+          {tab === 'review' && <ReviewScreen history={safeHistory} bookmarks={safeBookmarks} onStart={startPractice} />}
           {tab === 'analytics' && <Analytics history={safeHistory} />}
           {tab === 'settings' && (
             <SettingsScreen
@@ -403,8 +408,12 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const accuracy = history.length ? Math.round((history.filter(answer => answer.isCorrect).length / history.length) * 100) : 0
   const todayAnswers = history.filter(answer => answerDateKey(answer.answeredAt) === todayKey()).length
-  const reviewQuestions = questions.filter(question => getReviewPriority(question.id, history))
-  const highPriorityCount = reviewQuestions.filter(question => getReviewPriority(question.id, history) === 'high').length
+  const schedule = useMemo(() => buildReviewSchedule(questions, history), [history])
+  const today = todayKey()
+  const dueItems = useMemo(() => getDueReviewItems(schedule, today), [schedule, today])
+  const dueQuestions = useMemo(() => questionsForSchedule(dueItems), [dueItems])
+  const highPriorityCount = dueItems.filter(item => item.priority === 'high').length
+  const overdueCount = dueItems.filter(item => item.nextReviewDate < today).length
   const ranked = stats.filter(item => item.count > 0)
   const weak = [...ranked].sort((a, b) => a.accuracy - b.accuracy || b.incorrect - a.incorrect).slice(0, 3)
   const strong = [...ranked].sort((a, b) => b.accuracy - a.accuracy || b.count - a.count).slice(0, 3)
@@ -416,12 +425,12 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
         <div className="flex items-start justify-between">
           <div>
             <p className="text-[11px] font-bold text-lime">今日のおすすめ学習</p>
-            <h2 className="mt-2 max-w-[280px] text-xl font-bold leading-snug">{recommendation.text}</h2>
+            <h2 className="mt-2 max-w-[280px] text-xl font-bold leading-snug">{dueItems.length ? (highPriorityCount ? 'まずは優先度 高 の問題から復習しましょう' : '今日の復習を進めましょう') : recommendation.text}</h2>
           </div>
           <div className="grid size-12 place-items-center rounded-2xl bg-white/10"><Sparkles className="text-lime" /></div>
         </div>
-        <button onClick={() => onStart(recommendation.items, recommendation.mode)} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-lime font-bold text-ink">
-          <Play size={18} fill="currentColor" />おすすめ演習を始める
+        <button onClick={() => onStart(dueItems.length ? dueQuestions : recommendation.items, dueItems.length ? 'today-review' : recommendation.mode)} className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-lime font-bold text-ink">
+          <Play size={18} fill="currentColor" />{dueItems.length ? '今日の復習を始める' : 'おすすめ演習を始める'}
         </button>
       </section>
 
@@ -431,9 +440,13 @@ function HomeScreen({ history, onStart, onReview }: { history: AnswerHistory[]; 
         <SummaryCard label="今日の回答数" value={`${todayAnswers}問`} icon={Clock3} />
         <button onClick={onReview} className="rounded-2xl bg-white p-4 text-left shadow-sm dark:bg-white/5">
           <div className="flex items-center justify-between text-rose-500"><RotateCcw size={18} /><ChevronRight size={16} /></div>
-          <p className="mt-3 text-[10px] font-bold text-slate-400">復習優先度 高</p>
-          <p className="tabular mt-1 text-xl font-bold">{highPriorityCount}問</p>
+          <p className="mt-3 text-[10px] font-bold text-slate-400">今日の復習</p>
+          <p className="tabular mt-1 text-xl font-bold">{dueItems.length}問</p>
         </button>
+      </section>
+      <section className="grid grid-cols-2 gap-2 rounded-[20px] bg-white p-3 text-center shadow-sm dark:bg-white/5">
+        <Metric label="優先度 高" value={`${highPriorityCount}問`} />
+        <Metric label="期限切れ" value={`${overdueCount}問`} />
       </section>
 
       <section className="rounded-[24px] bg-white p-5 shadow-sm dark:bg-white/5">
@@ -467,12 +480,14 @@ function Ranking({ title, items, empty, tone }: { title: string; items: ReturnTy
 function PracticeMenu({ history, bookmarks, onStart, onToggleBookmark }: { history: AnswerHistory[]; bookmarks: BookmarkStore; onStart: (items?: Question[], mode?: PracticeMode) => void; onToggleBookmark: (questionId: string) => void }) {
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const recommendation = useMemo(() => getRecommendation(history), [history])
+  const dueQuestions = useMemo(() => questionsForSchedule(getDueReviewItems(buildReviewSchedule(questions, history))), [history])
   const wrong = questions.filter(question => latest.get(question.id)?.isCorrect === false)
   const lowConfidence = questions.filter(question => latest.get(question.id)?.confidence === 'low')
   const unanswered = questions.filter(question => !latest.has(question.id))
   const morningQuestions = questions.filter(question => question.examType === 'morning')
   const bookmarked = questions.filter(question => bookmarks.includes(question.id))
   const modes = [
+    { title: '今日の復習', description: dueQuestions.length ? '期限切れを含む復習対象' : '今日の復習対象はありません', icon: RotateCcw, items: dueQuestions, mode: 'today-review' as PracticeMode, color: 'bg-lime text-ink' },
     { title: '今日のおすすめ', description: recommendation.text, icon: Sparkles, items: recommendation.items, mode: recommendation.mode, color: 'bg-lime text-ink' },
     { title: '不正解復習', description: '直近で間違えた問題', icon: X, items: wrong, mode: 'wrong' as PracticeMode, color: 'bg-rose-50 text-rose-600' },
     { title: '自信なし復習', description: '自信なしで回答した問題', icon: CircleHelp, items: lowConfidence, mode: 'low-confidence' as PracticeMode, color: 'bg-amber-50 text-amber-600' },
@@ -530,6 +545,7 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
   const [selectedFilter, setSelectedFilter] = useState<QuestionListFilter>('all')
   const latest = useMemo(() => getLatestAnswers(history), [history])
   const bookmarkSet = useMemo(() => new Set(Array.isArray(bookmarks) ? bookmarks : []), [bookmarks])
+  const scheduleByQuestion = useMemo(() => new Map(buildReviewSchedule(questions, history).map(item => [item.questionId, item])), [history])
   const keyword = String(searchKeyword ?? '').trim().toLocaleLowerCase('ja')
   const field = String(selectedField ?? '')
   const filter = getSafeQuestionListFilter(selectedFilter)
@@ -573,12 +589,14 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
           {filtered.map(question => {
             const answer = latest.get(question.id)
             const bookmarked = bookmarkSet.has(question.id)
+            const review = scheduleByQuestion.get(question.id)
             return (
               <li key={question.id} className="flex min-w-0 items-stretch gap-2 rounded-2xl bg-slate-50 p-2 dark:bg-white/5">
                 <button type="button" onClick={() => onStart([question], 'single')} className="min-w-0 flex-1 rounded-xl p-2 text-left">
                   <span className="block text-xs font-bold">{formatExam(question)}</span>
                   <span className="mt-1 block text-[11px] font-bold text-moss dark:text-lime">{question.field} / {question.subField}</span>
                   <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-300">{answer ? `回答済み：${answer.isCorrect ? '正解' : '不正解'}${answer.confidence === 'low' ? '・自信なし' : ''}` : '未回答'}{bookmarked ? '・ブックマーク済み' : ''}</span>
+                  {review && <span className="mt-1 block text-[10px] font-bold text-slate-500 dark:text-slate-300">次回復習：{formatReviewDate(review.nextReviewDate)}・優先度 {priorityLabel[review.priority]}・理由：{review.reason}</span>}
                   <span className="mt-2 block line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{question.questionText}</span>
                 </button>
                 <button type="button" aria-label={bookmarked ? `${formatExam(question)}のブックマークを解除` : `${formatExam(question)}をブックマーク`} aria-pressed={bookmarked} onClick={() => onToggleBookmark(question.id)} className={`grid w-12 shrink-0 place-items-center rounded-xl ${bookmarked ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-300' : 'bg-white text-slate-400 dark:bg-white/10'}`}><Bookmark size={19} fill={bookmarked ? 'currentColor' : 'none'} /></button>
@@ -725,32 +743,41 @@ function ExplanationBlock({ title, icon: Icon, text, tone }: { title: string; ic
   return <div><p className="flex items-center gap-2 text-xs font-bold"><Icon size={17} className={tone} />{title}</p><p className="mt-2 text-xs leading-6 text-slate-600 dark:text-slate-300">{text}</p></div>
 }
 
-function ReviewScreen({ history, onStart }: { history: AnswerHistory[]; onStart: (items: Question[], mode?: PracticeMode) => void }) {
+function ReviewScreen({ history, bookmarks, onStart }: { history: AnswerHistory[]; bookmarks: BookmarkStore; onStart: (items: Question[], mode?: PracticeMode) => void }) {
   const latest = useMemo(() => getLatestAnswers(history), [history])
-  const [filter, setFilter] = useState<'high' | 'medium-up' | 'wrong' | 'low-confidence' | 'unanswered' | 'field' | 'mistake'>('high')
+  const schedule = useMemo(() => buildReviewSchedule(questions, history), [history])
+  const scheduleByQuestion = useMemo(() => new Map(schedule.map(item => [item.questionId, item])), [schedule])
+  const today = todayKey()
+  const [filter, setFilter] = useState<'today' | 'overdue' | 'upcoming' | 'high' | 'medium-up' | 'wrong' | 'low-confidence' | 'unanswered' | 'field' | 'mistake' | 'bookmarked'>('today')
   const [field, setField] = useState<string>(allFields[0] ?? '')
   const [mistakeTag, setMistakeTag] = useState<MistakeTag>(mistakeTags[0])
-  const filtered = questions.filter(question => {
+  const dueItems = getDueReviewItems(schedule, today)
+  const upcomingItems = getUpcomingReviewItems(schedule, today)
+  const orderedItems = filter === 'today' ? dueItems : filter === 'overdue' ? dueItems.filter(item => item.nextReviewDate < today) : filter === 'upcoming' ? upcomingItems : schedule
+  const candidateQuestions = filter === 'unanswered' ? questions : questionsForSchedule(orderedItems)
+  const filtered = candidateQuestions.filter(question => {
     const answer = latest.get(question.id)
-    const priority = getReviewPriority(question.id, history)
-    if (filter === 'high') return priority === 'high'
-    if (filter === 'medium-up') return priority === 'high' || priority === 'medium'
+    const item = scheduleByQuestion.get(question.id)
+    if (filter === 'today' || filter === 'overdue' || filter === 'upcoming') return true
+    if (filter === 'high') return item?.priority === 'high'
+    if (filter === 'medium-up') return item?.priority === 'high' || item?.priority === 'medium'
     if (filter === 'wrong') return answer?.isCorrect === false
     if (filter === 'low-confidence') return answer?.confidence === 'low'
     if (filter === 'unanswered') return !answer
-    if (filter === 'field') return question.field === field && priority !== null
+    if (filter === 'field') return question.field === field && Boolean(item)
+    if (filter === 'bookmarked') return bookmarks.includes(question.id)
     return Boolean(answer && getAnswerMistakeTag(answer) === mistakeTag)
   })
   const filters = [
-    ['high', '優先度：高のみ'], ['medium-up', '優先度：中以上'], ['wrong', '不正解のみ'],
-    ['low-confidence', '自信なしのみ'], ['unanswered', '未回答のみ'], ['field', '分野別'], ['mistake', 'ミス傾向別'],
+    ['today', '今日の復習'], ['overdue', '期限切れ'], ['upcoming', '7日以内'], ['high', '優先度：高'], ['medium-up', '優先度：中以上'],
+    ['wrong', '不正解のみ'], ['low-confidence', '自信なしのみ'], ['unanswered', '未回答のみ'], ['field', '分野別'], ['mistake', 'ミス傾向別'], ['bookmarked', 'ブックマークのみ'],
   ] as const
 
   return (
     <div className="space-y-4">
       <section className="rounded-[24px] bg-ink p-5 text-white">
         <div className="flex items-center gap-3"><div className="grid size-11 place-items-center rounded-xl bg-lime text-ink"><RotateCcw size={22} /></div><div><p className="text-[10px] font-bold text-lime">REVIEW</p><h2 className="font-bold">復習対象を絞り込む</h2></div></div>
-        <p className="mt-4 text-xs leading-relaxed text-white/60">回答履歴から復習優先度とミス傾向を整理します。</p>
+        <p className="mt-4 text-xs leading-relaxed text-white/60">次回復習日・優先度・ミス傾向から復習問題を整理します。</p>
       </section>
       <section className="rounded-[22px] bg-white p-4 shadow-sm dark:bg-white/5">
         <div className="flex flex-wrap gap-2">{filters.map(([value, label]) => <button key={value} onClick={() => setFilter(value)} className={`min-h-11 rounded-full px-3 text-[11px] font-bold ${filter === value ? 'bg-moss text-white dark:bg-lime dark:text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}>{label}</button>)}</div>
@@ -759,8 +786,8 @@ function ReviewScreen({ history, onStart }: { history: AnswerHistory[]; onStart:
       </section>
       <section className="rounded-[22px] bg-white p-4 shadow-sm dark:bg-white/5">
         <div className="flex items-center justify-between"><h3 className="font-bold">復習問題一覧</h3><span className="tabular text-sm font-bold">{filtered.length}問</span></div>
-        {filtered.length ? <ul className="mt-3 space-y-2">{filtered.map(question => { const priority = getReviewPriority(question.id, history) ?? 'low'; const answer = latest.get(question.id); const tag = answer && getAnswerMistakeTag(answer); return <li key={question.id} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${priorityClass[priority]}`}>復習優先度：{priorityLabel[priority]}</span><span className={`rounded-full px-2 py-1 text-[9px] font-bold ${fieldColor[question.field] ?? 'bg-slate-100'}`}>{question.field}</span>{tag && <span className="text-[9px] font-bold text-slate-400">{tag}</span>}</div><p className="mt-2 line-clamp-2 text-xs leading-relaxed">問{question.questionNumber} {question.questionText}</p></li> })}</ul> : <p className="mt-4 text-xs text-slate-400">この条件に該当する問題はありません。</p>}
-        <button disabled={!filtered.length} onClick={() => onStart(filtered, filter === 'wrong' ? 'wrong' : filter === 'low-confidence' ? 'low-confidence' : filter === 'unanswered' ? 'unanswered' : filter === 'field' ? 'field' : 'recommended')} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-xs font-bold text-white disabled:bg-slate-100 disabled:text-slate-400 dark:bg-lime dark:text-ink dark:disabled:bg-white/10 dark:disabled:text-slate-500">この条件で演習する<ChevronRight size={16} /></button>
+        {filtered.length ? <ul className="mt-3 space-y-2">{filtered.map(question => { const item = scheduleByQuestion.get(question.id); const answer = latest.get(question.id); const tag = answer && getAnswerMistakeTag(answer); return <li key={question.id} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><div className="flex flex-wrap items-center gap-2">{item && <span className={`rounded-full px-2 py-1 text-[9px] font-bold ${priorityClass[item.priority]}`}>復習優先度：{priorityLabel[item.priority]}</span>}<span className={`rounded-full px-2 py-1 text-[9px] font-bold ${fieldColor[question.field] ?? 'bg-slate-100'}`}>{question.field}</span>{tag && <span className="text-[9px] font-bold text-slate-400">{tag}</span>}</div>{item && <p className="mt-2 text-[10px] font-bold text-slate-500 dark:text-slate-300">次回復習：{formatReviewDate(item.nextReviewDate, today)}・理由：{item.reason}</p>}<p className="mt-2 line-clamp-2 text-xs leading-relaxed">問{question.questionNumber} {question.questionText}</p></li> })}</ul> : <p className="mt-4 text-xs text-slate-400">{filter === 'today' ? '今日の復習対象はありません。' : 'この条件に該当する問題はありません。'}</p>}
+        <button disabled={!filtered.length} onClick={() => onStart(filtered, filter === 'today' || filter === 'overdue' ? 'today-review' : filter === 'wrong' ? 'wrong' : filter === 'low-confidence' ? 'low-confidence' : filter === 'unanswered' ? 'unanswered' : filter === 'field' ? 'field' : filter === 'bookmarked' ? 'bookmarked' : 'recommended')} className="mt-4 flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-ink text-xs font-bold text-white disabled:bg-slate-100 disabled:text-slate-400 dark:bg-lime dark:text-ink dark:disabled:bg-white/10 dark:disabled:text-slate-500">この条件で演習する<ChevronRight size={16} /></button>
       </section>
     </div>
   )
@@ -768,11 +795,21 @@ function ReviewScreen({ history, onStart }: { history: AnswerHistory[]; onStart:
 function Analytics({ history }: { history: AnswerHistory[] }) {
   const data = useMemo(() => getFieldStats(history), [history])
   const mistakeCounts = useMemo(() => getMistakeCounts(history), [history])
+  const schedule = useMemo(() => buildReviewSchedule(questions, history), [history])
+  const today = todayKey()
+  const dueItems = useMemo(() => getDueReviewItems(schedule, today), [schedule, today])
+  const upcomingItems = useMemo(() => getUpcomingReviewItems(schedule, today), [schedule, today])
+  const fieldReviewCounts = allFields.map(field => ({ field, count: schedule.filter(item => questions.find(question => question.id === item.questionId)?.field === field).length })).filter(item => item.count)
   const topMistake = [...mistakeCounts].sort((a, b) => b.count - a.count)[0]
   const studyDays = new Set(history.map(answer => answerDateKey(answer.answeredAt))).size
   return (
     <div className="space-y-5">
       <div className="grid grid-cols-2 gap-3"><SummaryCard icon={Flame} label="学習日数" value={`${studyDays}日`} /><SummaryCard icon={BookOpen} label="総回答数" value={`${history.length}問`} /></div>
+      <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
+        <div className="mb-4 flex items-center gap-2 font-bold"><RotateCcw size={19} className="text-moss dark:text-lime" />復習スケジュール</div>
+        <div className="grid grid-cols-2 gap-2"><Metric label="今日" value={`${dueItems.length}問`} /><Metric label="期限切れ" value={`${dueItems.filter(item => item.nextReviewDate < today).length}問`} /><Metric label="7日以内" value={`${upcomingItems.length}問`} /><Metric label="優先度 高" value={`${schedule.filter(item => item.priority === 'high').length}問`} /></div>
+        {fieldReviewCounts.length ? <div className="mt-4 flex flex-wrap gap-2">{fieldReviewCounts.map(item => <span key={item.field} className="rounded-full bg-slate-100 px-3 py-2 text-[10px] font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">{item.field}：{item.count}問</span>)}</div> : <p className="mt-4 text-xs text-slate-400">回答すると分野別の復習予定が表示されます。</p>}
+      </section>
       <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
         <div className="mb-4 flex items-center gap-2 font-bold"><Brain size={19} className="text-moss dark:text-lime" />ミス傾向サマリー</div>
         <div className="grid grid-cols-2 gap-2">{mistakeCounts.map(item => <div key={item.tag} className="rounded-xl bg-slate-50 p-3 dark:bg-white/5"><p className="text-[10px] font-bold text-slate-500 dark:text-slate-300">{item.tag}</p><p className="tabular mt-1 text-lg font-bold">{item.count}<span className="ml-1 text-[10px] text-slate-400">件</span></p></div>)}</div>
