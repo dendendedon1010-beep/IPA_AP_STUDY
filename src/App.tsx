@@ -27,6 +27,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
+import { ipaPastExamCatalog } from './data/ipaPastExams'
 import { questions } from './data/questions'
 import { buildLearningRoadmap, getTodayLearningPlan } from './lib/learningRoadmap'
 import { createMorningMockExam, formatMockExamTime, getMockExamRemainingSeconds } from './lib/mockExam'
@@ -34,7 +35,7 @@ import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReview
 import { clearMockExamResults, defaultSettings, deleteMockExamResult, loadBookmarks, loadHistory, loadMockExamResults, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamResults, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamResult, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.2.0'
+const APP_VERSION = 'v2.3.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -1023,9 +1024,10 @@ function QuestionScreen({ question, selected, setSelected, result, confidence, s
           </div>
           <div><p className="text-xs font-bold">関連キーワード</p><div className="mt-2 flex flex-wrap gap-2">{question.explanation.keywords.map(keyword => <span key={keyword} className="rounded-full bg-slate-100 px-3 py-1.5 text-[10px] font-bold text-slate-600 dark:bg-white/10 dark:text-slate-300">{keyword}</span>)}</div></div>
           <div className="border-t border-slate-100 pt-4 text-[10px] leading-relaxed text-slate-400 dark:border-white/10">
-            <p className="font-bold text-slate-500 dark:text-slate-300">出典</p>
-            <a href={question.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-moss underline dark:text-lime">{question.sourceName}</a>
-            <p className="mt-2">{question.isQuoteFromIpa ? '問題文・選択肢はIPA公開問題からの引用です。解説はAP Studyによる独自作成です。' : '問題文・選択肢・解説はAP Studyによる独自作成です。IPAシラバスを出題範囲の参考にしています。'}</p>
+            <p className="font-bold text-slate-500 dark:text-slate-300">出典：{question.sourceName}</p>
+            {question.isQuoteFromIpa && <a href={question.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-moss underline dark:text-lime">IPA公式資料を開く</a>}
+            <p className="mt-2">{question.isQuoteFromIpa ? '問題文・選択肢はIPA公開資料より引用' : '問題文・選択肢はAP Studyのオリジナル問題'}</p>
+            <p>解説はAP Studyが作成</p>
           </div>
         </section>
       )}
@@ -1198,6 +1200,26 @@ function SettingsScreen({ value, onChange, onReset }: { value: Settings; onChang
       </SettingCard>
       <SettingCard title="午後の選択候補" icon={BookOpen}><div className="flex flex-wrap gap-2">{options.map(option => { const active = value.afternoonFields.includes(option); return <button key={option} onClick={() => onChange({ ...value, afternoonFields: active ? value.afternoonFields.filter(field => field !== option) : [...value.afternoonFields, option] })} className={`rounded-full px-3 py-2 text-xs font-bold ${active ? 'bg-moss text-white' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{active && '✓ '}{option}</button> })}</div></SettingCard>
       <SettingCard title="表示テーマ" icon={Sparkles}><div className="grid grid-cols-2 gap-2">{(['light', 'dark'] as const).map(theme => <button key={theme} onClick={() => onChange({ ...value, theme })} className={`h-12 rounded-xl text-xs font-bold ${value.theme === theme ? 'bg-ink text-white ring-2 ring-lime ring-offset-2' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{theme === 'light' ? 'ライト' : 'ダーク'}</button>)}</div></SettingCard>
+      <SettingCard title="IPA過去問カタログ" icon={ClipboardCheck}>
+        <p className="mb-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">今後の年度別取り込み対象です。公式資料を確認できた項目だけリンクを表示します。</p>
+        <div className="divide-y divide-slate-100 dark:divide-white/10">
+          {ipaPastExamCatalog.map(item => {
+            const officialUrl = item.sourcePageUrl || item.questionPdfUrl
+            return (
+              <div key={item.id} className="py-3 first:pt-0 last:pb-0">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold">{item.period.eraLabel} {item.period.seasonLabel} {item.paperType === 'morning' ? '午前' : '午後'}</p>
+                    <p className="mt-1 text-[10px] text-slate-400">{item.note ?? '今後取り込み予定'}</p>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${item.isReadyForImport ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>{item.isReadyForImport ? '投入準備済み' : '未取り込み'}</span>
+                </div>
+                {officialUrl && <a href={officialUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[10px] font-bold text-moss underline dark:text-lime">公式資料を開く</a>}
+              </div>
+            )
+          })}
+        </div>
+      </SettingCard>
       <div className="rounded-[24px] bg-white p-5 dark:bg-white/5">
         <div className="flex items-center gap-2 font-bold"><LockKeyhole size={18} className="text-moss dark:text-lime" />データ管理</div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">学習データはこの端末のブラウザ内に保存されています。</p>

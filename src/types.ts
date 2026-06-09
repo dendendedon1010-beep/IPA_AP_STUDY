@@ -7,6 +7,33 @@ export type ReviewPriority = 'high' | 'medium' | 'low'
 export type Tab = 'home' | 'practice' | 'review' | 'analytics' | 'settings'
 export type PracticeMode = 'recommended' | 'today-review' | 'field' | 'wrong' | 'low-confidence' | 'unanswered' | 'random-10' | 'mock-exam' | 'bookmarked' | 'single'
 
+
+export type IpaExamSeason = 'spring' | 'autumn' | 'special' | 'unknown'
+
+export interface IpaExamPeriod {
+  year: number
+  eraLabel: string
+  season: IpaExamSeason
+  seasonLabel: string
+}
+
+export type IpaExamCategory = 'AP'
+export type IpaExamPaperType = 'morning' | 'afternoon'
+
+export interface IpaPastExamCatalogItem {
+  id: string
+  category: IpaExamCategory
+  period: IpaExamPeriod
+  paperType: IpaExamPaperType
+  title: string
+  questionPdfUrl?: string
+  answerPdfUrl?: string
+  commentaryPdfUrl?: string
+  sourcePageUrl?: string
+  note?: string
+  isReadyForImport: boolean
+}
+
 export interface Choice {
   key: ChoiceKey
   text: string

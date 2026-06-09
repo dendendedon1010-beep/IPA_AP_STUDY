@@ -7,7 +7,8 @@ import ts from 'typescript'
 const root = new URL('../', import.meta.url)
 const temporaryDirectory = await mkdtemp(join(tmpdir(), 'ap-study-questions-'))
 const choiceKeys = ['ア', 'イ', 'ウ', 'エ']
-const ipaIdPattern = /^ap-r\d{2}-(spring|autumn)-(am|pm)-q\d{3}$/
+const ipaMorningIdPattern = /^ap-r\d{2}-(spring|autumn)-am-q\d{3}$/
+const ipaAfternoonIdPattern = /^ap-r\d{2}-(spring|autumn)-pm-q\d{2}(?:-sub\d{2})?$/
 const originalIdPattern = /^ap-original-am-[a-z0-9]+(?:-[a-z0-9]+)*-q\d{3}$/
 const errors = []
 
@@ -27,9 +28,11 @@ const transpile = async (sourcePath, outputName) => {
 try {
   await transpile('src/data/fields.ts', 'fields.js')
   await transpile('src/data/questions.ts', 'questions.js')
-  const [{ FIELD_NAMES }, { questions }] = await Promise.all([
+  await transpile('src/data/ipaPastExams.ts', 'ipaPastExams.js')
+  const [{ FIELD_NAMES }, { questions }, { ipaPastExamCatalog }] = await Promise.all([
     import(pathToFileURL(join(temporaryDirectory, 'fields.js')).href),
     import(pathToFileURL(join(temporaryDirectory, 'questions.js')).href),
+    import(pathToFileURL(join(temporaryDirectory, 'ipaPastExams.js')).href),
   ])
   const allowedFields = new Set(FIELD_NAMES)
   const ids = new Set()
@@ -46,9 +49,11 @@ try {
     requireText('id', question?.id)
     if (ids.has(question?.id)) errors.push(`${label}: id が重複しています。`)
     ids.add(question?.id)
-    const isIpaId = ipaIdPattern.test(question?.id ?? '')
+    const isIpaMorningId = ipaMorningIdPattern.test(question?.id ?? '')
+    const isIpaAfternoonId = ipaAfternoonIdPattern.test(question?.id ?? '')
+    const isIpaId = isIpaMorningId || isIpaAfternoonId
     const isOriginalId = originalIdPattern.test(question?.id ?? '')
-    if (!isIpaId && !isOriginalId) errors.push(`${label}: id は ap-r05-autumn-am-q001 又は ap-original-am-security-q001 形式にしてください。`)
+    if (!isIpaId && !isOriginalId) errors.push(`${label}: id は ap-r05-autumn-am-q001、ap-r05-autumn-pm-q01 又は ap-original-am-security-q001 形式にしてください。`)
     if (question?.isQuoteFromIpa === true && !isIpaId) errors.push(`${label}: IPA引用問題には年度・期・問番号を含むIDが必要です。`)
     if (question?.isQuoteFromIpa === false && !isOriginalId && !question?.legacyIds?.length) errors.push(`${label}: オリジナル問題には ap-original-am-... 形式のIDが必要です。`)
 
@@ -79,6 +84,11 @@ try {
     requireText('sourceName', question?.sourceName)
     requireText('sourceUrl', question?.sourceUrl)
     if (typeof question?.isQuoteFromIpa !== 'boolean') errors.push(`${label}: isQuoteFromIpa は boolean にしてください。`)
+    if (question?.isQuoteFromIpa === true) {
+      if (!String(question.sourceName ?? '').includes('情報処理推進機構（IPA）')) errors.push(`${label}: IPA引用問題の sourceName には情報処理推進機構（IPA）を明記してください。`)
+      if (!/^https:\/\//.test(question.sourceUrl ?? '')) errors.push(`${label}: IPA引用問題の sourceUrl には確認済みのHTTPS URLが必要です。`)
+    }
+    if (question?.isQuoteFromIpa === false && !String(question.sourceName ?? '').startsWith('AP Study')) errors.push(`${label}: オリジナル問題の sourceName は AP Study から始めてください。`)
     if (!question?.explanation || typeof question.explanation !== 'object') {
       errors.push(`${label}: explanation がありません。`)
     } else {
@@ -92,8 +102,33 @@ try {
       const reiwaYear = String(question.examYear - 2018).padStart(2, '0')
       const season = question.examSeason === '春期' ? 'spring' : 'autumn'
       const examType = question.examType === 'morning' ? 'am' : 'pm'
-      const expectedId = `ap-r${reiwaYear}-${season}-${examType}-q${String(question.questionNumber).padStart(3, '0')}`
+      const questionNumber = String(question.questionNumber).padStart(question.examType === 'morning' ? 3 : 2, '0')
+      const expectedId = `ap-r${reiwaYear}-${season}-${examType}-q${questionNumber}`
       if (isIpaId && question.id !== expectedId) errors.push(`${label}: メタデータから期待されるIDは ${expectedId} です。`)
+    }
+  }
+
+  const catalogIds = new Set()
+  if (!Array.isArray(ipaPastExamCatalog) || ipaPastExamCatalog.length === 0) errors.push('ipaPastExamCatalog: 1件以上の配列が必要です。')
+  for (const [index, item] of (ipaPastExamCatalog ?? []).entries()) {
+    const label = item?.id || `ipaPastExamCatalog[${index}]`
+    const requireText = (key, value) => {
+      if (typeof value !== 'string' || value.trim() === '') errors.push(`${label}: ${key} がありません。`)
+    }
+    requireText('id', item?.id)
+    if (catalogIds.has(item?.id)) errors.push(`${label}: カタログIDが重複しています。`)
+    catalogIds.add(item?.id)
+    if (item?.category !== 'AP') errors.push(`${label}: category は AP にしてください。`)
+    if (!Number.isInteger(item?.period?.year)) errors.push(`${label}: period.year がありません。`)
+    requireText('period.eraLabel', item?.period?.eraLabel)
+    if (!['spring', 'autumn', 'special', 'unknown'].includes(item?.period?.season)) errors.push(`${label}: period.season が不正です。`)
+    requireText('period.seasonLabel', item?.period?.seasonLabel)
+    if (!['morning', 'afternoon'].includes(item?.paperType)) errors.push(`${label}: paperType が不正です。`)
+    requireText('title', item?.title)
+    if (typeof item?.isReadyForImport !== 'boolean') errors.push(`${label}: isReadyForImport は boolean にしてください。`)
+    for (const key of ['questionPdfUrl', 'answerPdfUrl', 'commentaryPdfUrl', 'sourcePageUrl']) {
+      const value = item?.[key]
+      if (value !== undefined && (typeof value !== 'string' || value.trim() === '' || !/^https:\/\//.test(value))) errors.push(`${label}: ${key} は未確認なら省略し、設定する場合はHTTPS URLにしてください。`)
     }
   }
 
@@ -102,7 +137,7 @@ try {
     errors.forEach(error => console.error(`- ${error}`))
     process.exitCode = 1
   } else {
-    console.log(`問題データ検証成功: ${questions.length}問、${allowedFields.size}分野`)
+    console.log(`問題データ検証成功: ${questions.length}問、${allowedFields.size}分野、過去問カタログ${ipaPastExamCatalog.length}件`)
   }
 } catch (error) {
   console.error('問題データを読み込めませんでした。', error)
