@@ -2,10 +2,46 @@ import { FIELDS } from '../../../fields.js'
 import type { ChoiceKey, Question } from '../../../../types.js'
 
 const choiceKeys: ChoiceKey[] = ['ア', 'イ', 'ウ', 'エ']
-type Seed = { number: number; field: Question['field']; subField: string; text: string; choices: [string, string, string, string]; answer: ChoiceKey; reasons: [string, string, string, string]; points: string[]; keywords: string[] }
+type Seed = { number: number; field: Question['field']; subField: string; text: string; tables?: Question['tables']; choices: [string, string, string, string]; answer: ChoiceKey; reasons: [string, string, string, string]; points: string[]; keywords: string[] }
 const questionPdfUrl = 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000008smf-att/2022r04a_ap_am_qs.pdf'
 
 const seeds: Seed[] = [
+  {
+    number: 54, field: FIELDS.projectManagement, subField: '多基準意思決定分析',
+    text: 'あるシステム導入プロジェクトで，調達候補のパッケージ製品を多基準意思決定分析の加重総和法を用いて評価する。製品A～製品Dのうち，総合評価が最も高い製品はどれか。ここで，評価点数の値が大きいほど，製品の評価は高い。',
+    tables: [{
+      caption: '各製品の評価',
+      headers: ['評価項目', '評価項目の重み', '製品A', '製品B', '製品C', '製品D'],
+      rows: [
+        ['機能要件の充足度合い', '5', '7', '8', '9', '9'],
+        ['非機能要件の充足度合い', '1', '9', '10', '4', '7'],
+        ['導入費用の安さ', '4', '8', '5', '7', '6'],
+      ],
+      sourceName: '情報処理推進機構（IPA） 応用情報技術者試験 令和4年度 秋期 午前 問54',
+      sourceUrl: questionPdfUrl,
+    }],
+    choices: ['製品A', '製品B', '製品C', '製品D'], answer: 'ウ',
+    reasons: ['加重総和は5×7＋1×9＋4×8＝76である。', '加重総和は5×8＋1×10＋4×5＝70である。', '加重総和は5×9＋1×4＋4×7＝77となり，4製品中で最大である。', '加重総和は5×9＋1×7＋4×6＝76である。'],
+    points: ['各評価点に重みを掛けて合計し，製品間で比較する。'], keywords: ['多基準意思決定分析', '加重総和法', '調達'],
+  },
+  {
+    number: 56, field: FIELDS.serviceManagement, subField: '要員計画',
+    text: 'あるサービスデスクでは，年中無休でサービスを提供している。要員は勤務表及び勤務条件に従って1日3交替のシフト制で勤務している。1週間のサービス提供で必要な要員は，少なくとも何人か。\n\n[勤務条件]\n・勤務を交替するときに30分間で引継ぎを行う。\n・1回のシフト中に1時間の休憩を取り，労働時間は7.5時間とする。\n・1週間の労働時間は，40時間以内とする。',
+    tables: [{
+      caption: '勤務表',
+      headers: ['シフト名', '勤務時間帯', '勤務時間（時間）', '勤務する要員数（人）'],
+      rows: [
+        ['早番', '0:00～8:30', '8.5', '2'],
+        ['日中', '8:00～16:30', '8.5', '4'],
+        ['遅番', '16:00～翌日0:30', '8.5', '2'],
+      ],
+      sourceName: '情報処理推進機構（IPA） 応用情報技術者試験 令和4年度 秋期 午前 問56',
+      sourceUrl: questionPdfUrl,
+    }],
+    choices: ['8', '11', '12', '14'], answer: 'ウ',
+    reasons: ['8人では週56シフトを分担できない。', '11人では1人週5シフトとして最大55シフトとなり，1シフト不足する。', '1日8人分×7日＝56シフトが必要で，1人は週40時間以内なので7.5時間勤務を最大5回担当できる。56÷5を切り上げると12人である。', '必要数12人を上回る。'],
+    points: ['引継ぎと休憩を除く労働時間は1シフト7.5時間で，週40時間以内なら最大5シフトである。'], keywords: ['サービスデスク', 'シフト', '要員計画'],
+  },
   {
     number: 58, field: FIELDS.systemAudit, subField: 'ISMS内部監査',
     text: 'JIS Q 27001:2014（情報セキュリティマネジメントシステム－要求事項）に基づいてISMS内部監査を行った結果として判明した状況のうち，監査人が，指摘事項として監査報告書に記載すべきものはどれか。',
@@ -49,6 +85,25 @@ const seeds: Seed[] = [
     points: ['EAは組織全体を複数のアーキテクチャ体系で整理する。'], keywords: ['EA', '全体最適', 'アーキテクチャ'],
   },
   {
+    number: 64, field: FIELDS.strategy, subField: '正味現在価値法',
+    text: '投資効果を正味現在価値法で評価するとき，最も投資効果が大きい（又は最も損失が小さい）シナリオはどれか。ここで，期間は3年間，割引率は5%とし，各シナリオのキャッシュフローは表のとおりとする。',
+    tables: [{
+      caption: '各シナリオのキャッシュフロー（単位 万円）',
+      headers: ['シナリオ', '投資額', '回収額 1年目', '回収額 2年目', '回収額 3年目'],
+      rows: [
+        ['A', '220', '40', '80', '120'],
+        ['B', '220', '120', '80', '40'],
+        ['C', '220', '80', '80', '80'],
+        ['投資をしない', '0', '0', '0', '0'],
+      ],
+      sourceName: '情報処理推進機構（IPA） 応用情報技術者試験 令和4年度 秋期 午前 問64',
+      sourceUrl: questionPdfUrl,
+    }],
+    choices: ['A', 'B', 'C', '投資をしない'], answer: 'イ',
+    reasons: ['回収額が後半に偏るため割引の影響が大きく，正味現在価値は負になる。', '大きな回収額を早期に得られるので，3案の中で正味現在価値が最大かつ正になる。', '回収額が均等であるが，正味現在価値はBを下回り負になる。', '正味現在価値は0であり，正の値となるBより小さい。'],
+    points: ['同じ総回収額でも，早い時期のキャッシュフローほど現在価値が大きい。'], keywords: ['正味現在価値法', 'NPV', 'キャッシュフロー'],
+  },
+  {
     number: 65, field: FIELDS.strategy, subField: 'リスク対応',
     text: '組込み機器のハードウェアの製造を外部に委託する場合のコンティンジェンシープランの記述として，適切なものはどれか。',
     choices: ['実績のある外注先の利用によって，リスクの発生確率を低減する。', '製造品質が担保されていることを確認できるように委託先と契約する。', '複数の会社の見積りを比較検討して，委託先を選定する。', '部品調達のリスクが顕在化したときに備えて，対処するための計画を策定する。'], answer: 'エ',
@@ -60,7 +115,7 @@ const seeds: Seed[] = [
 const createQuestion = (seed: Seed): Question => ({
   id: `ap-r04-autumn-am-q${String(seed.number).padStart(3, '0')}`,
   examYear: 2022, examSeason: '秋期', examType: 'morning', questionNumber: seed.number,
-  field: seed.field, subField: seed.subField, questionText: seed.text,
+  field: seed.field, subField: seed.subField, questionText: seed.text, tables: seed.tables,
   choices: seed.choices.map((text, index) => ({ key: choiceKeys[index], text })),
   correctAnswer: seed.answer,
   officialAnswerText: `${seed.answer}：${seed.choices[choiceKeys.indexOf(seed.answer)]}`,

@@ -2,7 +2,7 @@ import { FIELDS } from '../../../fields.js'
 import type { ChoiceKey, Question } from '../../../../types.js'
 
 const choiceKeys: ChoiceKey[] = ['ア', 'イ', 'ウ', 'エ']
-type Seed = { number: number; field: Question['field']; subField: string; text: string; choices: [string, string, string, string]; answer: ChoiceKey; reasons: [string, string, string, string]; points: string[]; keywords: string[] }
+type Seed = { number: number; field: Question['field']; subField: string; text: string; tables?: Question['tables']; choices: [string, string, string, string]; answer: ChoiceKey; reasons: [string, string, string, string]; points: string[]; keywords: string[] }
 const questionPdfUrl = 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000009sgk-att/2022r04h_ap_am_qs.pdf'
 
 const seeds: Seed[] = [
@@ -63,6 +63,25 @@ const seeds: Seed[] = [
     points: ['後工程引取りと仕掛在庫削減が要点である。'], keywords: ['かんばん方式', 'JIT', 'プル型'],
   },
   {
+    number: 73, field: FIELDS.strategy, subField: '生産計画',
+    text: '製造業のA社では，NC工作機械を用いて，四つの仕事a～dを行っている。各仕事間の段取り時間は表のとおりである。合計の段取り時間が最小になるように仕事を行った場合の合計段取り時間は何時間か。ここで，仕事はどの順序で行ってもよく，a～dを一度ずつ行うものとし，FROMからTOへの段取り時間で検討する。',
+    tables: [{
+      caption: '仕事間の段取り時間（単位 時間）',
+      headers: ['FROM＼TO', '仕事a', '仕事b', '仕事c', '仕事d'],
+      rows: [
+        ['仕事a', '', '2', '1', '2'],
+        ['仕事b', '1', '', '1', '2'],
+        ['仕事c', '3', '2', '', '2'],
+        ['仕事d', '4', '3', '2', ''],
+      ],
+      sourceName: '情報処理推進機構（IPA） 応用情報技術者試験 令和4年度 春期 午前 問73',
+      sourceUrl: questionPdfUrl,
+    }],
+    choices: ['4', '5', '6', '7'], answer: 'ア',
+    reasons: ['b→a→c→dの順に行うと，1＋1＋2＝4時間となり，これが最小である。', '4時間で実行できる順序があるため最小値ではない。', '4時間で実行できる順序があるため最小値ではない。', '4時間で実行できる順序があるため最小値ではない。'],
+    points: ['表のFROMを行，TOを列として，有向の段取り時間を合計する。'], keywords: ['段取り時間', '生産計画', '組合せ'],
+  },
+  {
     number: 74, field: FIELDS.projectManagement, subField: 'ファシリテーション',
     text: '会議におけるファシリテータの役割として，適切なものはどれか。',
     choices: ['技術面や法律面など，自らが専門とする特定の領域の議論に対してだけ，助言を行う。', '議長となり，経営層の意向に合致した結論を導き出すように議論をコントロールする。', '中立公平な立場から，会議の参加者に発言を促したり，議論の流れを整理したりする。', '日程調整，資料準備，議事録作成など，会議運営の事務的作業に特化した支援を行う。'], answer: 'ウ',
@@ -74,7 +93,7 @@ const seeds: Seed[] = [
 const createQuestion = (seed: Seed): Question => ({
   id: `ap-r04-spring-am-q${String(seed.number).padStart(3, '0')}`,
   examYear: 2022, examSeason: '春期', examType: 'morning', questionNumber: seed.number,
-  field: seed.field, subField: seed.subField, questionText: seed.text,
+  field: seed.field, subField: seed.subField, questionText: seed.text, tables: seed.tables,
   choices: seed.choices.map((text, index) => ({ key: choiceKeys[index], text })),
   correctAnswer: seed.answer,
   officialAnswerText: `${seed.answer}：${seed.choices[choiceKeys.indexOf(seed.answer)]}`,
