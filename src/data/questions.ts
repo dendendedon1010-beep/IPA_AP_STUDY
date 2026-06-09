@@ -40,7 +40,7 @@ const createQuestion = (seed: QuestionSeed): Question => {
     choices,
     correctAnswer: seed.correctAnswer,
     officialAnswerText: `${seed.correctAnswer}：${correctChoice?.text ?? ''}`,
-    sourceName: seed.quoted ? '情報処理推進機構（IPA）令和6年度秋期 午前問題' : (seed.sourceName ?? 'AP Study オリジナル問題（IPA APシラバス準拠）'),
+    sourceName: seed.quoted ? `情報処理推進機構（IPA） 応用情報技術者試験 令和6年度 秋期 午前 問${seed.questionNumber}` : (seed.sourceName ?? 'AP Study original'),
     sourceUrl: seed.quoted ? ipaPastQuestionUrl : syllabusUrl,
     isQuoteFromIpa: Boolean(seed.quoted),
     explanation: {
