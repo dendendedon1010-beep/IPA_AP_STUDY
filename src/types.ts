@@ -36,6 +36,25 @@ export interface IpaPastExamCatalogItem {
   importStatus?: 'not-imported' | 'partial' | 'imported'
 }
 
+export type QuestionAsset = {
+  type: 'image'
+  src: string
+  alt: string
+  caption?: string
+  sourceName?: string
+  sourceUrl?: string
+}
+
+export type QuestionFigure = QuestionAsset
+
+export type QuestionTable = {
+  caption?: string
+  headers: string[]
+  rows: string[][]
+  sourceName?: string
+  sourceUrl?: string
+}
+
 export interface Choice {
   key: ChoiceKey
   text: string
@@ -59,6 +78,8 @@ export interface Question {
   field: FieldName
   subField: string
   questionText: string
+  assets?: QuestionAsset[]
+  tables?: QuestionTable[]
   choices: Choice[]
   correctAnswer: ChoiceKey
   officialAnswerText: string

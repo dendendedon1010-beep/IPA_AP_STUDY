@@ -15,6 +15,7 @@ import {
   Lightbulb,
   ClipboardCheck,
   ListFilter,
+  Maximize2,
   LockKeyhole,
   Play,
   RotateCcw,
@@ -35,7 +36,7 @@ import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReview
 import { clearMockExamResults, defaultSettings, deleteMockExamResult, loadBookmarks, loadHistory, loadMockExamResults, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamResults, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamResult, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.6.0'
+const APP_VERSION = 'v2.7.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -753,7 +754,7 @@ function MockExamFlow({ session, onChange, onFinish, onReview, onRestart, onAnal
   return (
     <div className="space-y-4">
       <section className="rounded-xl bg-white px-4 py-3 shadow-sm dark:bg-white/5"><div className="flex items-center justify-between text-xs font-bold"><span>問題番号：{session.currentIndex + 1} / {session.questionIds.length}</span><span className="tabular text-moss dark:text-lime">残り {formatMockExamTime(remainingSeconds)}</span></div><div className="mt-2 flex justify-between text-[10px] text-slate-500 dark:text-slate-300"><span>未回答 {unansweredCount}問</span><span>見直し {markedCount}問</span></div></section>
-      <section className="rounded-[24px] bg-white p-5 shadow-card dark:bg-white/5"><div className="flex items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${fieldColor[currentQuestion.field] ?? 'bg-slate-100 text-slate-600'}`}>{currentQuestion.field}</span><span className="text-[10px] text-slate-400">{currentQuestion.subField}</span><button onClick={() => updateAnswer({ marked: !currentAnswer.marked })} className={`ml-auto flex h-10 items-center gap-1 rounded-xl px-3 text-[10px] font-bold ${currentAnswer.marked ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}><Flag size={15} fill={currentAnswer.marked ? 'currentColor' : 'none'} />後で見直す</button></div><p className="mt-5 whitespace-pre-wrap text-[15px] font-medium leading-7">{currentQuestion.questionText}</p><div className="mt-5 space-y-3">{currentQuestion.choices.map(choice => <button key={choice.key} onClick={() => updateAnswer({ selectedAnswer: choice.key, confidence: currentAnswer.confidence ?? 'normal', answeredAt: new Date().toISOString() })} className={`flex min-h-14 w-full items-start gap-3 rounded-2xl border p-3 text-left text-sm leading-6 ${currentAnswer.selectedAnswer === choice.key ? 'border-moss bg-emerald-50/50 dark:border-lime dark:bg-white/5' : 'border-slate-200 dark:border-white/10'}`}><span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${currentAnswer.selectedAnswer === choice.key ? 'bg-moss text-white dark:bg-lime dark:text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}>{choice.key}</span><span>{choice.text}</span></button>)}</div></section>
+      <section className="rounded-[24px] bg-white p-5 shadow-card dark:bg-white/5"><div className="flex items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${fieldColor[currentQuestion.field] ?? 'bg-slate-100 text-slate-600'}`}>{currentQuestion.field}</span><span className="text-[10px] text-slate-400">{currentQuestion.subField}</span>{Boolean(currentQuestion.assets?.length) && <span className="rounded-full bg-sky-50 px-2 py-1 text-[9px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">図表あり</span>}{Boolean(currentQuestion.tables?.length) && <span className="rounded-full bg-violet-50 px-2 py-1 text-[9px] font-bold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">表あり</span>}<button onClick={() => updateAnswer({ marked: !currentAnswer.marked })} className={`ml-auto flex h-10 items-center gap-1 rounded-xl px-3 text-[10px] font-bold ${currentAnswer.marked ? 'bg-amber-100 text-amber-700 dark:bg-amber-500/20 dark:text-amber-300' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}><Flag size={15} fill={currentAnswer.marked ? 'currentColor' : 'none'} />後で見直す</button></div><p className="mt-5 whitespace-pre-wrap text-[15px] font-medium leading-7">{currentQuestion.questionText}</p><QuestionMaterials question={currentQuestion} /><div className="mt-5 space-y-3">{currentQuestion.choices.map(choice => <button key={choice.key} onClick={() => updateAnswer({ selectedAnswer: choice.key, confidence: currentAnswer.confidence ?? 'normal', answeredAt: new Date().toISOString() })} className={`flex min-h-14 w-full items-start gap-3 rounded-2xl border p-3 text-left text-sm leading-6 ${currentAnswer.selectedAnswer === choice.key ? 'border-moss bg-emerald-50/50 dark:border-lime dark:bg-white/5' : 'border-slate-200 dark:border-white/10'}`}><span className={`mt-0.5 grid size-7 shrink-0 place-items-center rounded-full text-xs font-bold ${currentAnswer.selectedAnswer === choice.key ? 'bg-moss text-white dark:bg-lime dark:text-ink' : 'bg-slate-100 text-slate-500 dark:bg-white/10 dark:text-slate-300'}`}>{choice.key}</span><span>{choice.text}</span></button>)}</div></section>
       <section className="rounded-[20px] border border-slate-200 p-4 dark:border-white/10"><p className="text-xs font-bold">この解答への自信</p><div className="mt-3 grid grid-cols-3 gap-2">{([['high', '自信あり'], ['normal', 'ふつう'], ['low', '自信なし']] as [Confidence, string][]).map(([value, label]) => <button key={value} onClick={() => updateAnswer({ confidence: value })} className={`h-11 rounded-xl text-[11px] font-bold ${currentAnswer.confidence === value || (!currentAnswer.confidence && value === 'normal') ? 'bg-moss text-white dark:bg-lime dark:text-ink' : 'bg-white text-slate-500 dark:bg-white/5 dark:text-slate-300'}`}>{label}</button>)}</div></section>
       <div className="safe-bottom fixed bottom-0 left-1/2 z-50 w-full max-w-[480px] -translate-x-1/2 border-t border-black/5 bg-white/95 px-4 pt-3 backdrop-blur dark:bg-[#18211c]/95"><div className="grid grid-cols-3 gap-2"><button disabled={session.currentIndex === 0} onClick={() => goToQuestion(session.currentIndex - 1)} className="flex h-12 items-center justify-center rounded-xl border border-slate-200 text-xs font-bold disabled:opacity-30 dark:border-white/10"><ChevronLeft size={17} />前へ</button><button onClick={() => setShowOverview(true)} className="h-12 rounded-xl border border-ink text-[11px] font-bold dark:border-lime">回答一覧へ</button>{session.currentIndex < session.questionIds.length - 1 ? <button onClick={() => goToQuestion(session.currentIndex + 1)} className="flex h-12 items-center justify-center rounded-xl bg-ink text-xs font-bold text-white dark:bg-lime dark:text-ink">次へ<ChevronRight size={17} /></button> : <button onClick={() => onFinish(false)} className="h-12 rounded-xl bg-rose-500 text-[11px] font-bold text-white">終了・採点</button>}</div></div>
     </div>
@@ -894,6 +895,7 @@ function QuestionList({ history, bookmarks, onStart, onToggleBookmark }: { histo
                   <span className="mt-1 block text-[11px] font-bold text-moss dark:text-lime">{question.field} / {question.subField}</span>
                   <span className="mt-1 block text-[10px] text-slate-500 dark:text-slate-300">{answer ? `回答済み：${answer.isCorrect ? '正解' : '不正解'}${answer.confidence === 'low' ? '・自信なし' : ''}` : '未回答'}{bookmarked ? '・ブックマーク済み' : ''}</span>
                   {review && <span className="mt-1 block text-[10px] font-bold text-slate-500 dark:text-slate-300">次回復習：{formatReviewDate(review.nextReviewDate)}・優先度 {priorityLabel[review.priority]}・理由：{review.reason}</span>}
+                  {(question.assets?.length || question.tables?.length) && <span className="mt-2 flex flex-wrap gap-1">{Boolean(question.assets?.length) && <span className="rounded-full bg-sky-50 px-2 py-1 text-[9px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">図表あり</span>}{Boolean(question.tables?.length) && <span className="rounded-full bg-violet-50 px-2 py-1 text-[9px] font-bold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">表あり</span>}</span>}
                   <span className="mt-2 block line-clamp-2 text-xs leading-relaxed text-slate-600 dark:text-slate-300">{question.questionText}</span>
                 </button>
                 <button type="button" aria-label={bookmarked ? `${formatExam(question)}のブックマークを解除` : `${formatExam(question)}をブックマーク`} aria-pressed={bookmarked} onClick={() => onToggleBookmark(question.id)} className={`grid w-12 shrink-0 place-items-center rounded-xl ${bookmarked ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-300' : 'bg-white text-slate-400 dark:bg-white/10'}`}><Bookmark size={19} fill={bookmarked ? 'currentColor' : 'none'} /></button>
@@ -965,6 +967,71 @@ function ResultQuestionList({ title, items, empty }: { title: string; items: Que
   return <section className="rounded-[24px] bg-white p-5 shadow-sm dark:bg-white/5"><div className="flex items-center justify-between"><h3 className="font-bold">{title}</h3><span className="tabular text-xs font-bold text-slate-400">{items.length}問</span></div>{items.length ? <ul className="mt-3 space-y-2">{items.map(question => <li key={question.id} className="rounded-xl bg-slate-50 p-3 text-xs dark:bg-white/5"><span className={`mr-2 rounded-full px-2 py-1 text-[9px] font-bold ${fieldColor[question.field] ?? 'bg-slate-100'}`}>{question.field}</span><span className="leading-relaxed">問{question.questionNumber} {question.questionText}</span></li>)}</ul> : <p className="mt-3 text-xs text-slate-400">{empty}</p>}</section>
 }
 
+function QuestionMaterials({ question }: { question: Question }) {
+  const [activeAssetIndex, setActiveAssetIndex] = useState<number | null>(null)
+  const activeAsset = activeAssetIndex === null ? undefined : question.assets?.[activeAssetIndex]
+
+  useEffect(() => {
+    if (!activeAsset) return
+    const previousOverflow = document.body.style.overflow
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setActiveAssetIndex(null)
+    }
+    document.body.style.overflow = 'hidden'
+    window.addEventListener('keydown', closeOnEscape)
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', closeOnEscape)
+    }
+  }, [activeAsset])
+
+  if (!question.assets?.length && !question.tables?.length) return null
+
+  return (
+    <div className="mt-5 space-y-4">
+      {question.assets?.map((asset, index) => (
+        <figure key={`${asset.src}-${index}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+          <button type="button" onClick={() => setActiveAssetIndex(index)} className="block w-full cursor-zoom-in rounded-xl bg-white p-2 dark:bg-[#101713]" aria-label={`${asset.alt}を拡大表示`}>
+            <img src={asset.src} alt={asset.alt} className="mx-auto h-auto max-w-full rounded-lg object-contain" />
+          </button>
+          <div className="mt-3 flex items-start justify-between gap-3">
+            <figcaption className="min-w-0 text-[11px] leading-relaxed text-slate-600 dark:text-slate-300">{asset.caption ?? asset.alt}</figcaption>
+            <button type="button" onClick={() => setActiveAssetIndex(index)} className="flex shrink-0 items-center gap-1 rounded-lg bg-white px-2.5 py-2 text-[10px] font-bold text-moss shadow-sm dark:bg-white/10 dark:text-lime"><Maximize2 size={14} />拡大して見る</button>
+          </div>
+          {asset.sourceName && <p className="mt-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">図表出典：{asset.sourceName}</p>}
+          {asset.sourceUrl && <a href={asset.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[10px] font-bold text-moss underline dark:text-lime">図表の公式資料を開く</a>}
+        </figure>
+      ))}
+
+      {question.tables?.map((table, index) => (
+        <figure key={`${table.caption ?? 'table'}-${index}`} className="rounded-2xl border border-slate-200 bg-slate-50 p-3 dark:border-white/10 dark:bg-white/5">
+          {table.caption && <figcaption className="mb-2 text-xs font-bold text-slate-700 dark:text-slate-200">{table.caption}</figcaption>}
+          <div className="max-w-full overflow-x-auto rounded-xl border border-slate-200 bg-white dark:border-white/10 dark:bg-[#101713]">
+            <table className="min-w-full border-collapse text-left text-xs leading-relaxed">
+              <thead className="bg-slate-100 text-slate-700 dark:bg-white/10 dark:text-slate-100"><tr>{table.headers.map((header, headerIndex) => <th key={`${header}-${headerIndex}`} scope="col" className="whitespace-nowrap border-b border-slate-200 px-3 py-2.5 font-bold dark:border-white/10">{header}</th>)}</tr></thead>
+              <tbody>{table.rows.map((row, rowIndex) => <tr key={rowIndex} className="border-b border-slate-100 last:border-0 dark:border-white/10">{row.map((cell, cellIndex) => <td key={cellIndex} className="min-w-24 px-3 py-2.5 align-top text-slate-700 dark:text-slate-200">{cell}</td>)}</tr>)}</tbody>
+            </table>
+          </div>
+          {table.sourceName && <p className="mt-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-400">表出典：{table.sourceName}</p>}
+          {table.sourceUrl && <a href={table.sourceUrl} target="_blank" rel="noreferrer" className="mt-1 inline-block text-[10px] font-bold text-moss underline dark:text-lime">表の公式資料を開く</a>}
+        </figure>
+      ))}
+
+      {activeAsset && (
+        <div role="dialog" aria-modal="true" aria-label="図表の拡大表示" className="fixed inset-0 z-[70] flex items-center justify-center overflow-hidden bg-black/80 p-3" onClick={() => setActiveAssetIndex(null)}>
+          <div className="flex max-h-full w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-[#18211c]" onClick={event => event.stopPropagation()}>
+            <div className="flex items-center justify-between gap-3 border-b border-slate-200 px-4 py-3 dark:border-white/10">
+              <p className="min-w-0 truncate text-xs font-bold">{activeAsset.caption ?? activeAsset.alt}</p>
+              <button type="button" autoFocus onClick={() => setActiveAssetIndex(null)} className="flex min-h-11 shrink-0 items-center gap-1 rounded-xl bg-slate-100 px-3 text-xs font-bold text-slate-700 dark:bg-white/10 dark:text-white"><X size={18} />閉じる</button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto p-3"><img src={activeAsset.src} alt={activeAsset.alt} className="mx-auto h-auto max-h-[calc(100dvh-7rem)] max-w-full object-contain" /></div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function QuestionScreen({ question, selected, setSelected, result, confidence, setConfidence, bookmarked, onToggleBookmark }: { question: Question; selected: ChoiceKey | null; setSelected: (key: ChoiceKey) => void; result: boolean; confidence: Confidence; setConfidence: (value: Confidence) => void; bookmarked: boolean; onToggleBookmark: () => void }) {
   const selectedChoice = question.choices.find(choice => choice.key === selected)
   const correctChoice = question.choices.find(choice => choice.key === question.correctAnswer)
@@ -975,10 +1042,13 @@ function QuestionScreen({ question, selected, setSelected, result, confidence, s
         <div className="flex flex-wrap items-center gap-2">
           <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${fieldColor[question.field] ?? 'bg-slate-100 text-slate-600'}`}>{question.field}</span>
           <span className="text-[10px] font-medium text-slate-400">{question.subField}</span>
+          {Boolean(question.assets?.length) && <span className="rounded-full bg-sky-50 px-2 py-1 text-[9px] font-bold text-sky-700 dark:bg-sky-500/15 dark:text-sky-300">図表あり</span>}
+          {Boolean(question.tables?.length) && <span className="rounded-full bg-violet-50 px-2 py-1 text-[9px] font-bold text-violet-700 dark:bg-violet-500/15 dark:text-violet-300">表あり</span>}
           <button type="button" aria-label={bookmarked ? 'ブックマークを解除' : 'ブックマークに追加'} aria-pressed={bookmarked} onClick={onToggleBookmark} className={`ml-auto grid size-10 place-items-center rounded-full ${bookmarked ? 'bg-yellow-100 text-yellow-600 dark:bg-yellow-500/20 dark:text-yellow-300' : 'bg-slate-100 text-slate-400 dark:bg-white/10'}`}><Bookmark size={19} fill={bookmarked ? 'currentColor' : 'none'} /></button>
           <span className="text-[10px] text-slate-400">問{question.questionNumber}</span>
         </div>
         <p className="mt-5 whitespace-pre-wrap text-[15px] font-medium leading-7">{question.questionText}</p>
+        <QuestionMaterials question={question} />
         <div className="mt-5 space-y-3">
           {question.choices.map(choice => {
             const active = selected === choice.key

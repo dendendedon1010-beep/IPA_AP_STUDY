@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -81,6 +81,76 @@ try {
     if (!allowedFields.has(question?.field)) errors.push(`${label}: field「${question?.field}」は許可されていません。`)
     requireText('subField', question?.subField)
     requireText('questionText', question?.questionText)
+
+    if (question?.assets !== undefined) {
+      if (!Array.isArray(question.assets)) {
+        errors.push(`${label}: assets は配列にしてください。`)
+      } else {
+        for (const [assetIndex, asset] of question.assets.entries()) {
+          const assetLabel = `assets[${assetIndex}]`
+          if (!asset || typeof asset !== 'object' || Array.isArray(asset)) {
+            errors.push(`${label}: ${assetLabel} はオブジェクトにしてください。`)
+            continue
+          }
+          if (asset.type !== 'image') errors.push(`${label}: ${assetLabel}.type は image にしてください。`)
+          requireText(`${assetLabel}.src`, asset.src)
+          requireText(`${assetLabel}.alt`, asset.alt)
+          for (const key of ['caption', 'sourceName', 'sourceUrl']) {
+            if (asset[key] !== undefined && typeof asset[key] !== 'string') errors.push(`${label}: ${assetLabel}.${key} は文字列にしてください。`)
+          }
+          if (typeof asset.src === 'string' && asset.src.trim() !== '') {
+            if (!asset.src.startsWith('/IPA_AP_STUDY/assets/')) {
+              errors.push(`${label}: ${assetLabel}.src は /IPA_AP_STUDY/assets/ で始めてください。`)
+            } else {
+              const publicAssetUrl = new URL(`public${asset.src.slice('/IPA_AP_STUDY'.length)}`, root)
+              try {
+                await access(publicAssetUrl)
+              } catch {
+                errors.push(`${label}: ${assetLabel}.src に対応するファイルが public/assets/ にありません（${asset.src}）。`)
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (question?.tables !== undefined) {
+      if (!Array.isArray(question.tables)) {
+        errors.push(`${label}: tables は配列にしてください。`)
+      } else {
+        for (const [tableIndex, table] of question.tables.entries()) {
+          const tableLabel = `tables[${tableIndex}]`
+          if (!table || typeof table !== 'object' || Array.isArray(table)) {
+            errors.push(`${label}: ${tableLabel} はオブジェクトにしてください。`)
+            continue
+          }
+          for (const key of ['caption', 'sourceName', 'sourceUrl']) {
+            if (table[key] !== undefined && typeof table[key] !== 'string') errors.push(`${label}: ${tableLabel}.${key} は文字列にしてください。`)
+          }
+          if (!Array.isArray(table.headers) || table.headers.length === 0) {
+            errors.push(`${label}: ${tableLabel}.headers は1列以上必要です。`)
+          } else {
+            table.headers.forEach((header, headerIndex) => {
+              if (typeof header !== 'string') errors.push(`${label}: ${tableLabel}.headers[${headerIndex}] は文字列にしてください。`)
+            })
+          }
+          if (!Array.isArray(table.rows) || table.rows.length === 0) {
+            errors.push(`${label}: ${tableLabel}.rows は1行以上必要です。`)
+          } else {
+            table.rows.forEach((row, rowIndex) => {
+              if (!Array.isArray(row)) {
+                errors.push(`${label}: ${tableLabel}.rows[${rowIndex}] は配列にしてください。`)
+                return
+              }
+              if (Array.isArray(table.headers) && row.length !== table.headers.length) errors.push(`${label}: ${tableLabel}.rows[${rowIndex}] の列数を headers と一致させてください。`)
+              row.forEach((cell, cellIndex) => {
+                if (typeof cell !== 'string') errors.push(`${label}: ${tableLabel}.rows[${rowIndex}][${cellIndex}] は文字列にしてください。`)
+              })
+            })
+          }
+        }
+      }
+    }
 
     if (!Array.isArray(question?.choices) || question.choices.length !== 4) {
       errors.push(`${label}: choices は4つ必要です。`)
