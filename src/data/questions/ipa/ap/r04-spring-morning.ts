@@ -1,0 +1,86 @@
+import { FIELDS } from '../../../fields.js'
+import type { ChoiceKey, Question } from '../../../../types.js'
+
+const choiceKeys: ChoiceKey[] = ['ア', 'イ', 'ウ', 'エ']
+type Seed = { number: number; field: Question['field']; subField: string; text: string; choices: [string, string, string, string]; answer: ChoiceKey; reasons: [string, string, string, string]; points: string[]; keywords: string[] }
+const questionPdfUrl = 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000009sgk-att/2022r04h_ap_am_qs.pdf'
+
+const seeds: Seed[] = [
+  {
+    number: 65, field: FIELDS.systemDevelopment, subField: '非機能要件',
+    text: '非機能要件の使用性に該当するものはどれか。',
+    choices: ['4時間以内のトレーニングを受けることで，新しい画面を操作できるようになること', '業務量がピークの日であっても，8時間以内で夜間バッチ処理を完了できること', '現行のシステムから新システムに72時間以内で移行できること', '地震などの大規模災害時であっても，144時間以内にシステムを復旧できること'], answer: 'ア',
+    reasons: ['習得に必要な時間は，利用者がシステムを使いこなす容易さを示す使用性の要件である。', '処理完了時間は性能・効率性に関する要件である。', '移行時間は移行性に関する要件である。', '災害からの復旧時間は信頼性・可用性に関する要件である。'],
+    points: ['使用性には操作性や習得性が含まれる。'], keywords: ['非機能要件', '使用性', '習得性'],
+  },
+  {
+    number: 66, field: FIELDS.systemDevelopment, subField: 'UML',
+    text: 'UMLの図のうち，業務要件定義において，業務フローを記述する際に使用する，処理の分岐や並行処理，処理の同期などを表現できる図はどれか。',
+    choices: ['アクティビティ図', 'クラス図', '状態マシン図', 'ユースケース図'], answer: 'ア',
+    reasons: ['アクティビティ図は処理の流れ，分岐，並行処理，同期を表現できる。', 'クラス図はクラスの属性・操作・関係を表す構造図である。', '状態マシン図は対象の状態遷移を表す。', 'ユースケース図は利用者とシステム機能との関係を表す。'],
+    points: ['業務フローの可視化にはアクティビティ図を用いる。'], keywords: ['UML', 'アクティビティ図', '業務フロー'],
+  },
+  {
+    number: 67, field: FIELDS.strategy, subField: 'PPM',
+    text: 'PPMにおいて，投資用の資金源として位置付けられる事業はどれか。',
+    choices: ['市場成長率が高く，相対的市場占有率が高い事業', '市場成長率が高く，相対的市場占有率が低い事業', '市場成長率が低く，相対的市場占有率が高い事業', '市場成長率が低く，相対的市場占有率が低い事業'], answer: 'ウ',
+    reasons: ['花形は高成長・高占有率で，成長維持のため投資も必要とする。', '問題児は高成長・低占有率で，育成のため資金を必要とする。', '金のなる木は低成長・高占有率で，安定した資金源となる。', '負け犬は低成長・低占有率で，通常は投資優先度が低い。'],
+    points: ['金のなる木が他事業への投資資金を生み出す。'], keywords: ['PPM', '金のなる木', '市場占有率'],
+  },
+  {
+    number: 68, field: FIELDS.strategy, subField: '成長戦略',
+    text: 'アンゾフの成長マトリクスを説明したものはどれか。',
+    choices: ['外部環境と内部環境の観点から，強み，弱み，機会，脅威という四つの要因について情報を整理し，企業を取り巻く環境を分析する手法である。', '企業のビジョンと戦略を実現するために，財務，顧客，内部ビジネスプロセス，学習と成長という四つの視点から事業活動を検討し，アクションプランまで具体化していくマネジメント手法である。', '事業戦略を，市場浸透，市場拡大，製品開発，多角化という四つのタイプに分類し，事業の方向性を検討する際に用いる手法である。', '製品ライフサイクルを，導入期，成長期，成熟期，衰退期という四つの段階に分類し，企業にとって最適な戦略を立案する手法である。'], answer: 'ウ',
+    reasons: ['強み・弱み・機会・脅威を整理するのはSWOT分析である。', '四つの視点で戦略を管理するのはバランススコアカードである。', '市場と製品の新旧から市場浸透・市場拡大・製品開発・多角化を整理するのがアンゾフの成長マトリクスである。', '導入期から衰退期までを扱うのは製品ライフサイクルである。'],
+    points: ['アンゾフは市場と製品の二軸で成長方向を整理する。'], keywords: ['アンゾフ', '成長マトリクス', '多角化'],
+  },
+  {
+    number: 69, field: FIELDS.strategy, subField: 'マーケティング',
+    text: 'バイラルマーケティングの説明はどれか。',
+    choices: ['顧客の好みや欲求の多様化に対応するために，画一的なマーケティングを行うのではなく，顧客一人ひとりの興味関心に合わせてマーケティングを行う手法', '市場全体をセグメント化せずに一つとして捉え，一つの製品を全ての購買者に対し，画一的なマーケティングを行う手法', '実店舗での商品販売，ECサイトなどのバーチャル店舗販売など複数のチャネルを連携させ，顧客がチャネルを意識せず購入できる利便性を実現する手法', '人から人へ，プラスの評価が口コミで爆発的に広まりやすいインターネットの特長を生かす手法'], answer: 'エ',
+    reasons: ['顧客ごとに対応するのはOne to Oneマーケティングである。', '市場を一つとして画一的に対応するのはマスマーケティングである。', '複数チャネルを連携するのはオムニチャネルである。', '口コミがウイルスのように広がる性質を利用するのがバイラルマーケティングである。'],
+    points: ['バイラルは口コミによる自発的な拡散を利用する。'], keywords: ['バイラルマーケティング', '口コミ'],
+  },
+  {
+    number: 70, field: FIELDS.strategy, subField: 'ビジネスモデル',
+    text: '半導体産業において，ファブレス企業と比較したファウンドリ企業のビジネスモデルの特徴として，適切なものはどれか。',
+    choices: ['工場での生産をアウトソーシングして，生産設備への投資を抑える。', '自社製品の設計，マーケティングに注力し，新市場を開拓する。', '自社製品の販売に注力し，売上げを拡大する。', '複数の企業から生産だけを専門に請け負い，多くの製品を低コストで生産する。'], answer: 'エ',
+    reasons: ['生産を外部委託して設備を持たないのはファブレス企業の特徴である。', '設計やマーケティングへの注力はファブレス企業の特徴である。', '自社製品の販売を中心とする説明では，受託製造を専門とする特徴を示さない。', 'ファウンドリ企業は複数企業から半導体製造を受託し，設備を集約して生産する。'],
+    points: ['ファブレスは設計中心，ファウンドリは製造受託中心である。'], keywords: ['ファウンドリ', 'ファブレス', '半導体'],
+  },
+  {
+    number: 71, field: FIELDS.strategy, subField: '会計情報',
+    text: 'XBRLで主要な取扱いの対象とされている情報はどれか。',
+    choices: ['医療機関のカルテ情報', '企業の顧客情報', '企業の財務情報', '自治体の住民情報'], answer: 'ウ',
+    reasons: ['カルテ情報の標準化を目的とする形式ではない。', '顧客情報の交換を主目的とする形式ではない。', 'XBRLは財務報告を電子的に記述・交換するための標準である。', '住民情報の交換を主目的とする形式ではない。'],
+    points: ['XBRLは財務情報をタグ付けして流通・分析しやすくする。'], keywords: ['XBRL', '財務情報'],
+  },
+  {
+    number: 72, field: FIELDS.strategy, subField: '生産管理',
+    text: '“かんばん方式”を説明したものはどれか。',
+    choices: ['各作業の効率を向上させるために，仕様が統一された部品，半製品を調達する。', '効率よく部品調達を行うために，関連会社から部品を調達する。', '中間在庫を極力減らすために，生産ラインにおいて，後工程が必要とする部品を自工程で生産できるように，必要な部品だけを前工程から調達する。', 'より品質が高い部品を調達するために，部品の納入指定業者を複数定め，競争入札で部品を調達する。'], answer: 'ウ',
+    reasons: ['部品の標準化を説明したもので，かんばん方式ではない。', '関連会社からの調達そのものを意味しない。', '後工程が必要なものを必要な量だけ前工程から引き取るプル型の仕組みである。', '競争入札による調達方式ではない。'],
+    points: ['後工程引取りと仕掛在庫削減が要点である。'], keywords: ['かんばん方式', 'JIT', 'プル型'],
+  },
+  {
+    number: 74, field: FIELDS.projectManagement, subField: 'ファシリテーション',
+    text: '会議におけるファシリテータの役割として，適切なものはどれか。',
+    choices: ['技術面や法律面など，自らが専門とする特定の領域の議論に対してだけ，助言を行う。', '議長となり，経営層の意向に合致した結論を導き出すように議論をコントロールする。', '中立公平な立場から，会議の参加者に発言を促したり，議論の流れを整理したりする。', '日程調整，資料準備，議事録作成など，会議運営の事務的作業に特化した支援を行う。'], answer: 'ウ',
+    reasons: ['特定領域だけを助言する専門家の役割ではない。', '特定の結論へ誘導するのではなく，中立性を保つ必要がある。', '参加を促進し，論点や議論の流れを整理するのがファシリテータの役割である。', '事務局業務だけに特化する役割ではない。'],
+    points: ['ファシリテータは中立的に合意形成と議論を支援する。'], keywords: ['ファシリテータ', '会議', '合意形成'],
+  },
+]
+
+const createQuestion = (seed: Seed): Question => ({
+  id: `ap-r04-spring-am-q${String(seed.number).padStart(3, '0')}`,
+  examYear: 2022, examSeason: '春期', examType: 'morning', questionNumber: seed.number,
+  field: seed.field, subField: seed.subField, questionText: seed.text,
+  choices: seed.choices.map((text, index) => ({ key: choiceKeys[index], text })),
+  correctAnswer: seed.answer,
+  officialAnswerText: `${seed.answer}：${seed.choices[choiceKeys.indexOf(seed.answer)]}`,
+  sourceName: `情報処理推進機構（IPA） 応用情報技術者試験 令和4年度 春期 午前 問${seed.number}`,
+  sourceUrl: questionPdfUrl, isQuoteFromIpa: true,
+  explanation: { correctReason: seed.reasons[choiceKeys.indexOf(seed.answer)], wrongReasons: Object.fromEntries(choiceKeys.map((key, index) => [key, seed.reasons[index]])), points: seed.points, keywords: seed.keywords, isAiGenerated: false },
+})
+
+export const r04SpringMorningQuestions: Question[] = seeds.map(createQuestion)
