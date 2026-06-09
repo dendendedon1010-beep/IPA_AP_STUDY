@@ -35,6 +35,8 @@ try {
   await transpile('src/data/questions/ipa/ap/r06-spring-morning.ts', 'questions/ipa/ap/r06-spring-morning.js')
   await transpile('src/data/questions/ipa/ap/r05-autumn-morning.ts', 'questions/ipa/ap/r05-autumn-morning.js')
   await transpile('src/data/questions/ipa/ap/r05-spring-morning.ts', 'questions/ipa/ap/r05-spring-morning.js')
+  await transpile('src/data/questions/ipa/ap/r04-autumn-morning.ts', 'questions/ipa/ap/r04-autumn-morning.js')
+  await transpile('src/data/questions/ipa/ap/r04-spring-morning.ts', 'questions/ipa/ap/r04-spring-morning.js')
   await transpile('src/data/questions.ts', 'questions.js')
   await transpile('src/data/ipaPastExams.ts', 'ipaPastExams.js')
   const [{ FIELD_NAMES }, { questions }, { ipaPastExamCatalog }] = await Promise.all([
@@ -90,6 +92,8 @@ try {
     if (!choiceKeys.includes(question?.correctAnswer)) errors.push(`${label}: correctAnswer は ア・イ・ウ・エ のいずれかにしてください。`)
 
     requireText('officialAnswerText', question?.officialAnswerText)
+    const correctChoice = question?.choices?.find(choice => choice?.key === question?.correctAnswer)
+    if (correctChoice && question?.officialAnswerText !== `${question.correctAnswer}：${correctChoice.text}`) errors.push(`${label}: officialAnswerText は正解記号と正解選択肢に一致させてください。`)
     requireText('sourceName', question?.sourceName)
     requireText('sourceUrl', question?.sourceUrl)
     if (typeof question?.isQuoteFromIpa !== 'boolean') errors.push(`${label}: isQuoteFromIpa は boolean にしてください。`)

@@ -1,3 +1,5 @@
+import { r04AutumnMorningQuestions } from './r04-autumn-morning.js'
+import { r04SpringMorningQuestions } from './r04-spring-morning.js'
 import { r05AutumnMorningQuestions } from './r05-autumn-morning.js'
 import { r05SpringMorningQuestions } from './r05-spring-morning.js'
 import { r06SpringMorningQuestions } from './r06-spring-morning.js'
@@ -7,4 +9,4 @@ import { r07SpringMorningQuestions } from './r07-spring-morning.js'
 import type { Question } from '../../../../types'
 
 /** 年度・期別モジュールを追加した際に、この配列へ明示的に登録する。 */
-export const ipaApQuestionSets: readonly (readonly Question[])[] = [r07AutumnMorningQuestions, r07SpringMorningQuestions, r06AutumnMorningQuestions, r06SpringMorningQuestions, r05AutumnMorningQuestions, r05SpringMorningQuestions]
+export const ipaApQuestionSets: readonly (readonly Question[])[] = [r07AutumnMorningQuestions, r07SpringMorningQuestions, r06AutumnMorningQuestions, r06SpringMorningQuestions, r05AutumnMorningQuestions, r05SpringMorningQuestions, r04AutumnMorningQuestions, r04SpringMorningQuestions]
