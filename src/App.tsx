@@ -37,7 +37,7 @@ import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReview
 import { clearMockExamResults, defaultSettings, deleteMockExamResult, loadBookmarks, loadHistory, loadMockExamResults, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamResults, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamResult, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.12.0'
+const APP_VERSION = 'v2.13.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -1240,7 +1240,6 @@ function Analytics({ history, mockExamResults, onStart, onStartMock, onReview, o
   }
   return (
     <div className="space-y-5">
-      <IpaImportCoverageDashboard />
       <div className="grid grid-cols-2 gap-3"><SummaryCard icon={Flame} label="学習日数" value={`${studyDays}日`} /><SummaryCard icon={BookOpen} label="総回答数" value={`${history.length}問`} /></div>
       <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
         <div className="flex items-center gap-2 font-bold"><Target size={19} className="text-moss dark:text-lime" />学習ロードマップ</div>
@@ -1294,33 +1293,53 @@ function IpaImportCoverageDashboard() {
   const assetQuestionCount = ipaMorningImportCoverage.reduce((sum, item) => sum + item.assetQuestionCount, 0)
   const figureCandidateCount = ipaMorningImportCoverage.reduce((sum, item) => sum + item.figureCandidateCount, 0)
   return (
-    <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
-      <div className="flex items-center gap-2 font-bold"><ClipboardCheck size={19} className="text-moss dark:text-lime" />過去問取り込み状況</div>
-      <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-300">IPA午前過去問の実登録データを年度・期ごとに集計しています。</p>
-      <div className="mt-4 grid grid-cols-3 gap-2">
-        <Metric label="総問題数" value={`${questions.length}問`} />
-        <Metric label="IPA引用" value={`${ipaQuoteCount}問`} />
-        <Metric label="午前カタログ" value={`${ipaMorningImportCoverage.length}期`} />
-        <Metric label="平均取り込み率" value={`${averageCoverage}%`} />
-        <Metric label="表付き" value={`${tableQuestionCount}問`} />
-        <Metric label="図表画像付き" value={`${assetQuestionCount}問`} />
+    <details className="group min-w-0 max-w-full overflow-hidden rounded-[24px] bg-white shadow-sm dark:bg-white/5">
+      <summary className="cursor-pointer list-none p-5 [&::-webkit-details-marker]:hidden">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 font-bold"><ClipboardCheck size={18} className="text-moss dark:text-lime" />過去問カタログ・取り込み状況</div>
+            <p className="mt-2 text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">IPA公開過去問の取り込み状況です。学習機能には直接影響しません。</p>
+          </div>
+          <ChevronRight size={18} className="mt-0.5 shrink-0 text-slate-400 transition-transform group-open:rotate-90" />
+        </div>
+      </summary>
+      <div className="border-t border-slate-100 px-5 pb-5 pt-4 dark:border-white/10">
+        <p className="text-xs font-bold">全体サマリー</p>
+        <div className="mt-3 grid grid-cols-3 gap-3">
+          <Metric label="総問題数" value={`${questions.length}問`} />
+          <Metric label="IPA引用" value={`${ipaQuoteCount}問`} />
+          <Metric label="午前カタログ" value={`${ipaMorningImportCoverage.length}期`} />
+          <Metric label="平均取り込み率" value={`${averageCoverage}%`} />
+          <Metric label="表付き" value={`${tableQuestionCount}問`} />
+          <Metric label="図表画像付き" value={`${assetQuestionCount}問`} />
+        </div>
+        <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">図表対応待ち候補：{figureCandidateCount}問</div>
+        <p className="mt-5 text-xs font-bold">年度・期ごとの取り込み状況</p>
+        <div className="mt-3 space-y-3">
+          {ipaMorningImportCoverage.map(item => (
+            <article key={item.id} className="rounded-2xl border border-slate-100 p-4 dark:border-white/10">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><h3 className="text-sm font-bold">{item.period.eraLabel} {item.period.seasonLabel} 午前</h3><p className="mt-1 text-[10px] text-slate-400">状態：{item.effectiveImportStatus} ・ importStatus: {item.importStatus ?? 'not-imported'} ・ 優先度：{item.priority}</p></div>
+                <span className="tabular shrink-0 text-sm font-bold text-moss dark:text-lime">{item.totalImported} / 80問</span>
+              </div>
+              <div className="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-300"><span>取り込み率 {item.coverageRate}%</span><span>未取り込み {item.missingCount}問</span></div>
+              <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full min-w-1 rounded-full bg-moss dark:bg-lime" style={{ width: `${Math.min(100, item.coverageRate)}%` }} /></div>
+              <p className="mt-3 text-[10px] leading-relaxed text-slate-500 dark:text-slate-300">内訳：テキスト {item.textOnlyCount}問 / 表付き {item.tableQuestionCount}問 / 図表画像付き {item.assetQuestionCount}問 / 図表候補 {item.figureCandidateCount}問</p>
+              <details className="mt-3 rounded-xl bg-slate-50 px-3 py-2 dark:bg-white/5">
+                <summary className="cursor-pointer text-[10px] font-bold text-slate-500 dark:text-slate-300">note・公式リンク</summary>
+                <p className="mt-2 text-[10px] leading-relaxed text-slate-500 dark:text-slate-300">{item.note ?? 'カタログnoteなし'}</p>
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-2">
+                  {item.sourcePageUrl && <a href={item.sourcePageUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-moss underline dark:text-lime">出典ページ</a>}
+                  {item.questionPdfUrl && <a href={item.questionPdfUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-moss underline dark:text-lime">問題PDF</a>}
+                  {item.answerPdfUrl && <a href={item.answerPdfUrl} target="_blank" rel="noreferrer" className="text-[10px] font-bold text-moss underline dark:text-lime">解答PDF</a>}
+                </div>
+              </details>
+            </article>
+          ))}
+        </div>
+        {ipaFigureQuestionCandidates.length > 0 && <div className="mt-5"><p className="text-xs font-bold">図表候補</p><div className="mt-3 space-y-2">{ipaFigureQuestionCandidates.map(candidate => <div key={candidate.id} className="rounded-xl bg-slate-50 p-3 text-[10px] dark:bg-white/5"><p className="font-bold">令和{candidate.examYear - 2018}年度 {candidate.examSeason} 午前 問{candidate.questionNumber}</p><p className="mt-1 text-slate-500 dark:text-slate-300">状態：{candidate.status} ・ {candidate.note}</p></div>)}</div></div>}
       </div>
-      <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">図表対応待ち候補：{figureCandidateCount}問</div>
-      <div className="mt-4 space-y-3">
-        {ipaMorningImportCoverage.map(item => (
-          <article key={item.id} className="rounded-2xl border border-slate-100 p-4 dark:border-white/10">
-            <div className="flex items-start justify-between gap-3">
-              <div><h3 className="text-sm font-bold">{item.period.eraLabel} {item.period.seasonLabel} 午前</h3><p className="mt-1 text-[10px] text-slate-400">状態：{item.effectiveImportStatus} ・ 優先度：{item.priority}</p></div>
-              <span className="tabular shrink-0 text-sm font-bold text-moss dark:text-lime">{item.totalImported} / 80問</span>
-            </div>
-            <div className="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-300"><span>取り込み率 {item.coverageRate}%</span><span>未取り込み {item.missingCount}問</span></div>
-            <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full min-w-1 rounded-full bg-moss dark:bg-lime" style={{ width: `${Math.min(100, item.coverageRate)}%` }} /></div>
-            <p className="mt-3 text-[10px] leading-relaxed text-slate-500 dark:text-slate-300">内訳：テキスト {item.textOnlyCount}問 / 表付き {item.tableQuestionCount}問 / 図表画像 {item.assetQuestionCount}問 / 図表候補 {item.figureCandidateCount}問</p>
-            <p className="mt-2 text-[10px] leading-relaxed text-slate-400">{item.note ?? 'カタログnoteなし'}</p>
-          </article>
-        ))}
-      </div>
-    </section>
+    </details>
   )
 }
 
@@ -1339,26 +1358,7 @@ function SettingsScreen({ value, onChange, onReset }: { value: Settings; onChang
       </SettingCard>
       <SettingCard title="午後の選択候補" icon={BookOpen}><div className="flex flex-wrap gap-2">{options.map(option => { const active = value.afternoonFields.includes(option); return <button key={option} onClick={() => onChange({ ...value, afternoonFields: active ? value.afternoonFields.filter(field => field !== option) : [...value.afternoonFields, option] })} className={`rounded-full px-3 py-2 text-xs font-bold ${active ? 'bg-moss text-white' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{active && '✓ '}{option}</button> })}</div></SettingCard>
       <SettingCard title="表示テーマ" icon={Sparkles}><div className="grid grid-cols-2 gap-2">{(['light', 'dark'] as const).map(theme => <button key={theme} onClick={() => onChange({ ...value, theme })} className={`h-12 rounded-xl text-xs font-bold ${value.theme === theme ? 'bg-ink text-white ring-2 ring-lime ring-offset-2' : 'bg-slate-100 text-slate-500 dark:bg-white/10'}`}>{theme === 'light' ? 'ライト' : 'ダーク'}</button>)}</div></SettingCard>
-      <SettingCard title="IPA過去問カタログ" icon={ClipboardCheck}>
-        <p className="mb-3 text-[11px] leading-relaxed text-slate-500 dark:text-slate-300">今後の年度別取り込み対象です。公式資料を確認できた項目だけリンクを表示します。</p>
-        <div className="divide-y divide-slate-100 dark:divide-white/10">
-          {ipaPastExamCatalog.map(item => {
-            const officialUrl = item.sourcePageUrl || item.questionPdfUrl
-            return (
-              <div key={item.id} className="py-3 first:pt-0 last:pb-0">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs font-bold">{item.period.eraLabel} {item.period.seasonLabel} {item.paperType === 'morning' ? '午前' : '午後'}</p>
-                    <p className="mt-1 text-[10px] text-slate-400">{item.note ?? '今後取り込み予定'}</p>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${item.isReadyForImport ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>{item.importedQuestionCount ? `${item.importedQuestionCount}問取り込み済み` : item.isReadyForImport ? '投入準備済み' : '未取り込み'}</span>
-                </div>
-                {officialUrl && <a href={officialUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[10px] font-bold text-moss underline dark:text-lime">公式資料を開く</a>}
-              </div>
-            )
-          })}
-        </div>
-      </SettingCard>
+      <IpaImportCoverageDashboard />
       <div className="rounded-[24px] bg-white p-5 dark:bg-white/5">
         <div className="flex items-center gap-2 font-bold"><LockKeyhole size={18} className="text-moss dark:text-lime" />データ管理</div>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-400">学習データはこの端末のブラウザ内に保存されています。</p>
