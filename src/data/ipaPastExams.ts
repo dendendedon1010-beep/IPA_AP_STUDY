@@ -17,7 +17,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みのテキストで完結する20問を取り込み済み',
     isReadyForImport: true,
     importedQuestionCount: 20,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r07-spring-afternoon',
@@ -40,7 +40,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みのテキストで完結する20問を取り込み済み',
     isReadyForImport: true,
     importedQuestionCount: 20,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r07-autumn-afternoon',
@@ -63,7 +63,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みのテキストで完結する11問を取り込み済み。図表依存問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 11,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r06-spring-afternoon',
@@ -86,7 +86,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式資料で確認済みの28問を取り込み済み。図表依存問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 28,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r06-autumn-afternoon',
@@ -109,7 +109,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みの11問を取り込み済み。うち2問は表付き問題。図としての正確な再現が必要な問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 11,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r05-spring-afternoon',
@@ -132,7 +132,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みのテキストで完結する11問を取り込み済み。図表依存問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 11,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r05-autumn-afternoon',
@@ -155,7 +155,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みの12問を取り込み済み。うち3問は表付き問題。図としての正確な再現が必要な問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 12,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r04-spring-afternoon',
@@ -178,7 +178,7 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     note: '公式確認済みの14問を取り込み済み。うち7問は表付き問題。図としての正確な再現が必要な問題などは未取り込み',
     isReadyForImport: true,
     importedQuestionCount: 14,
-    importStatus: 'imported',
+    importStatus: 'partial',
   },
   {
     id: 'ap-r04-autumn-afternoon',

@@ -227,17 +227,30 @@ try {
     if (typeof item?.isReadyForImport !== 'boolean') errors.push(`${label}: isReadyForImport は boolean にしてください。`)
     if (item?.importStatus !== undefined && !['not-imported', 'partial', 'imported'].includes(item.importStatus)) errors.push(`${label}: importStatus が不正です。`)
     if (item?.importedQuestionCount !== undefined && (!Number.isInteger(item.importedQuestionCount) || item.importedQuestionCount < 0)) errors.push(`${label}: importedQuestionCount は0以上の整数にしてください。`)
-    if (item?.importStatus === 'imported') {
-      if (!Number.isInteger(item.importedQuestionCount) || item.importedQuestionCount < 1) errors.push(`${label}: imported の場合は importedQuestionCount が必要です。`)
+    if (item?.category === 'AP' && item?.paperType === 'morning') {
       const seasonLabel = item.period?.season === 'spring' ? '春期' : item.period?.season === 'autumn' ? '秋期' : undefined
-      const actualCount = (questions ?? []).filter(question => question.examYear === item.period?.year && question.examSeason === seasonLabel && question.examType === item.paperType && question.isQuoteFromIpa === true).length
+      const actualCount = (questions ?? []).filter(question => question.examYear === item.period?.year && question.examSeason === seasonLabel && question.examType === 'morning' && question.isQuoteFromIpa === true).length
+      if (!Number.isInteger(item.importedQuestionCount)) errors.push(`${label}: IPA午前カタログには importedQuestionCount が必要です。`)
       if (actualCount !== item.importedQuestionCount) errors.push(`${label}: importedQuestionCount は実データ${actualCount}問と一致させてください。`)
+      const expectedStatus = actualCount >= 80 ? 'imported' : actualCount > 0 ? 'partial' : 'not-imported'
+      if (item.importStatus !== expectedStatus) errors.push(`${label}: 実データ${actualCount}問の場合、importStatus は ${expectedStatus} にしてください。`)
     }
     for (const key of ['questionPdfUrl', 'answerPdfUrl', 'commentaryPdfUrl', 'sourcePageUrl']) {
       const value = item?.[key]
       if (value !== undefined && (typeof value !== 'string' || value.trim() === '' || !/^https:\/\//.test(value))) errors.push(`${label}: ${key} は未確認なら省略し、設定する場合はHTTPS URLにしてください。`)
     }
   }
+
+  const morningCoverage = (ipaPastExamCatalog ?? [])
+    .filter(item => item?.category === 'AP' && item?.paperType === 'morning')
+    .map(item => {
+      const seasonLabel = item.period?.season === 'spring' ? '春期' : '秋期'
+      const actualCount = (questions ?? []).filter(question => question.examYear === item.period?.year && question.examSeason === seasonLabel && question.examType === 'morning' && question.isQuoteFromIpa === true).length
+      return { item, actualCount }
+    })
+    .sort((a, b) => b.item.period.year - a.item.period.year || (a.item.period.season === 'autumn' ? -1 : 1))
+  console.log('IPA午前問題取り込み状況:')
+  morningCoverage.forEach(({ item, actualCount }) => console.log(`${item.period.eraLabel} ${item.period.seasonLabel} 午前: ${actualCount}/80問`))
 
   if (warnings.length > 0) {
     console.warn(`問題データ検証で ${warnings.length} 件の警告が見つかりました。`)
