@@ -152,9 +152,9 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     questionPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000009sgk-att/2022r04h_ap_am_qs.pdf',
     answerPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000009sgk-att/2022r04h_ap_am_ans.pdf',
     sourcePageUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/2022r04.html',
-    note: '公式確認済みの12問を取り込み済み。うち3問は表付き問題。図としての正確な再現が必要な問題などは未取り込み',
+    note: '公式確認済みの18問を取り込み済み。うち4問は表付き問題。図表画像が必要な問題などは未取り込み',
     isReadyForImport: true,
-    importedQuestionCount: 12,
+    importedQuestionCount: 18,
     importStatus: 'partial',
   },
   {
@@ -175,9 +175,9 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     questionPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000008smf-att/2022r04a_ap_am_qs.pdf',
     answerPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/gmcbt80000008smf-att/2022r04a_ap_am_ans.pdf',
     sourcePageUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/2022r04.html',
-    note: '公式確認済みの14問を取り込み済み。うち7問は表付き問題。図としての正確な再現が必要な問題などは未取り込み',
+    note: '公式確認済みの28問を取り込み済み。うち9問は表付き問題。図表画像が必要な問題などは未取り込み',
     isReadyForImport: true,
-    importedQuestionCount: 14,
+    importedQuestionCount: 28,
     importStatus: 'partial',
   },
   {
