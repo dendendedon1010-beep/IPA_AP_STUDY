@@ -28,6 +28,7 @@ import {
   TrendingUp,
   X,
 } from 'lucide-react'
+import { ipaFigureQuestionCandidates } from './data/ipaFigureQuestionCandidates'
 import { ipaPastExamCatalog } from './data/ipaPastExams'
 import { questions } from './data/questions'
 import { buildLearningRoadmap, getTodayLearningPlan } from './lib/learningRoadmap'
@@ -36,7 +37,7 @@ import { buildReviewSchedule, getDueReviewItems, getReviewDayDistance, getReview
 import { clearMockExamResults, defaultSettings, deleteMockExamResult, loadBookmarks, loadHistory, loadMockExamResults, loadMockExamSession, loadSession, loadSettings, resetData, saveBookmarks, saveHistory, saveMockExamResults, saveMockExamSession, saveSession, saveSettings } from './lib/storage'
 import type { AnswerHistory, BookmarkStore, ChoiceKey, Confidence, MistakeTag, MockExamAnswer, MockExamResult, MockExamSession, PracticeMode, PracticeSession, Question, ReviewPriority, ReviewScheduleItem, Settings, Tab } from './types'
 
-const APP_VERSION = 'v2.11.0'
+const APP_VERSION = 'v2.12.0'
 const nav: { id: Tab; label: string; icon: typeof Home }[] = [
   { id: 'home', label: 'ホーム', icon: Home },
   { id: 'practice', label: '演習', icon: BookOpen },
@@ -67,6 +68,35 @@ const priorityClass: Record<ReviewPriority, string> = {
 }
 const todayKey = getTodayDateString
 const answerDateKey = (value: string) => new Date(value).toLocaleDateString('sv-SE')
+
+const ipaMorningImportCoverage = ipaPastExamCatalog
+  .filter(item => item.paperType === 'morning' && item.period.year >= 2022 && item.period.year <= 2025)
+  .map(item => {
+    const examSeason = item.period.season === 'spring' ? '春期' : '秋期'
+    const importedQuestions = questions.filter(question => question.isQuoteFromIpa === true && question.examType === 'morning' && question.examYear === item.period.year && question.examSeason === examSeason)
+    const totalImported = importedQuestions.length
+    const tableQuestionCount = importedQuestions.filter(question => (question.tables?.length ?? 0) > 0).length
+    const assetQuestionCount = importedQuestions.filter(question => (question.assets?.length ?? 0) > 0).length
+    const figureCandidateCount = ipaFigureQuestionCandidates.filter(candidate => candidate.examType === 'morning' && candidate.examYear === item.period.year && candidate.examSeason === examSeason && candidate.status !== 'imported' && candidate.status !== 'skipped').length
+    if (item.importedQuestionCount !== undefined && item.importedQuestionCount !== totalImported) {
+      console.warn(`[IPA過去問] ${item.title}: カタログ${item.importedQuestionCount}問 / 実登録${totalImported}問。実登録数を表示します。`)
+    }
+    return {
+      ...item,
+      examSeason,
+      totalImported,
+      questionNumbers: importedQuestions.map(question => question.questionNumber).sort((a, b) => a - b),
+      textOnlyCount: importedQuestions.filter(question => !(question.tables?.length) && !(question.assets?.length)).length,
+      tableQuestionCount,
+      assetQuestionCount,
+      figureCandidateCount,
+      coverageRate: Math.round((totalImported / 80) * 100),
+      missingCount: Math.max(0, 80 - totalImported),
+      effectiveImportStatus: totalImported >= 80 ? 'imported' : totalImported > 0 ? 'partial' : 'not-imported',
+      priority: totalImported <= 20 ? '次に増やしたい' : totalImported <= 50 ? '継続追加' : totalImported < 80 ? 'あと少し' : '完了',
+    }
+  })
+  .sort((a, b) => b.period.year - a.period.year || (a.period.season === 'autumn' ? -1 : 1))
 
 function getSafeHistory(history: unknown): AnswerHistory[] {
   if (!Array.isArray(history)) return []
@@ -1210,6 +1240,7 @@ function Analytics({ history, mockExamResults, onStart, onStartMock, onReview, o
   }
   return (
     <div className="space-y-5">
+      <IpaImportCoverageDashboard />
       <div className="grid grid-cols-2 gap-3"><SummaryCard icon={Flame} label="学習日数" value={`${studyDays}日`} /><SummaryCard icon={BookOpen} label="総回答数" value={`${history.length}問`} /></div>
       <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
         <div className="flex items-center gap-2 font-bold"><Target size={19} className="text-moss dark:text-lime" />学習ロードマップ</div>
@@ -1255,6 +1286,44 @@ function Analytics({ history, mockExamResults, onStart, onStartMock, onReview, o
   )
 }
 
+
+function IpaImportCoverageDashboard() {
+  const ipaQuoteCount = questions.filter(question => question.isQuoteFromIpa === true).length
+  const averageCoverage = ipaMorningImportCoverage.length ? Math.round(ipaMorningImportCoverage.reduce((sum, item) => sum + item.coverageRate, 0) / ipaMorningImportCoverage.length) : 0
+  const tableQuestionCount = ipaMorningImportCoverage.reduce((sum, item) => sum + item.tableQuestionCount, 0)
+  const assetQuestionCount = ipaMorningImportCoverage.reduce((sum, item) => sum + item.assetQuestionCount, 0)
+  const figureCandidateCount = ipaMorningImportCoverage.reduce((sum, item) => sum + item.figureCandidateCount, 0)
+  return (
+    <section className="rounded-[24px] bg-white p-4 shadow-card dark:bg-white/5">
+      <div className="flex items-center gap-2 font-bold"><ClipboardCheck size={19} className="text-moss dark:text-lime" />過去問取り込み状況</div>
+      <p className="mt-2 text-xs leading-relaxed text-slate-500 dark:text-slate-300">IPA午前過去問の実登録データを年度・期ごとに集計しています。</p>
+      <div className="mt-4 grid grid-cols-3 gap-2">
+        <Metric label="総問題数" value={`${questions.length}問`} />
+        <Metric label="IPA引用" value={`${ipaQuoteCount}問`} />
+        <Metric label="午前カタログ" value={`${ipaMorningImportCoverage.length}期`} />
+        <Metric label="平均取り込み率" value={`${averageCoverage}%`} />
+        <Metric label="表付き" value={`${tableQuestionCount}問`} />
+        <Metric label="図表画像付き" value={`${assetQuestionCount}問`} />
+      </div>
+      <div className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-[11px] font-bold text-amber-700 dark:bg-amber-500/10 dark:text-amber-300">図表対応待ち候補：{figureCandidateCount}問</div>
+      <div className="mt-4 space-y-3">
+        {ipaMorningImportCoverage.map(item => (
+          <article key={item.id} className="rounded-2xl border border-slate-100 p-4 dark:border-white/10">
+            <div className="flex items-start justify-between gap-3">
+              <div><h3 className="text-sm font-bold">{item.period.eraLabel} {item.period.seasonLabel} 午前</h3><p className="mt-1 text-[10px] text-slate-400">状態：{item.effectiveImportStatus} ・ 優先度：{item.priority}</p></div>
+              <span className="tabular shrink-0 text-sm font-bold text-moss dark:text-lime">{item.totalImported} / 80問</span>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-[10px] font-bold text-slate-500 dark:text-slate-300"><span>取り込み率 {item.coverageRate}%</span><span>未取り込み {item.missingCount}問</span></div>
+            <div className="mt-1.5 h-2 rounded-full bg-slate-100 dark:bg-white/10"><div className="h-full min-w-1 rounded-full bg-moss dark:bg-lime" style={{ width: `${Math.min(100, item.coverageRate)}%` }} /></div>
+            <p className="mt-3 text-[10px] leading-relaxed text-slate-500 dark:text-slate-300">内訳：テキスト {item.textOnlyCount}問 / 表付き {item.tableQuestionCount}問 / 図表画像 {item.assetQuestionCount}問 / 図表候補 {item.figureCandidateCount}問</p>
+            <p className="mt-2 text-[10px] leading-relaxed text-slate-400">{item.note ?? 'カタログnoteなし'}</p>
+          </article>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 function Metric({ label, value }: { label: string; value: string }) {
   return <div><p className="text-[9px] font-bold text-slate-400">{label}</p><p className="tabular mt-1 text-xs font-bold">{value}</p></div>
 }
@@ -1282,7 +1351,7 @@ function SettingsScreen({ value, onChange, onReset }: { value: Settings; onChang
                     <p className="text-xs font-bold">{item.period.eraLabel} {item.period.seasonLabel} {item.paperType === 'morning' ? '午前' : '午後'}</p>
                     <p className="mt-1 text-[10px] text-slate-400">{item.note ?? '今後取り込み予定'}</p>
                   </div>
-                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${item.isReadyForImport ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>{item.importStatus === 'imported' ? `${item.importedQuestionCount ?? 0}問取り込み済み` : item.isReadyForImport ? '投入準備済み' : '未取り込み'}</span>
+                  <span className={`shrink-0 rounded-full px-2 py-1 text-[9px] font-bold ${item.isReadyForImport ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-500/15 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-500/15 dark:text-amber-300'}`}>{item.importedQuestionCount ? `${item.importedQuestionCount}問取り込み済み` : item.isReadyForImport ? '投入準備済み' : '未取り込み'}</span>
                 </div>
                 {officialUrl && <a href={officialUrl} target="_blank" rel="noreferrer" className="mt-2 inline-block text-[10px] font-bold text-moss underline dark:text-lime">公式資料を開く</a>}
               </div>
