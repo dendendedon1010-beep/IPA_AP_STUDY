@@ -37,9 +37,9 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     questionPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07a_ap_am_qs.pdf',
     answerPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07a_ap_am_ans.pdf',
     sourcePageUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/2025r07.html',
-    note: '公式確認済みのテキスト・表で完結する60問を取り込み済み',
+    note: '公式確認済みのテキスト・表で完結する66問を取り込み済み',
     isReadyForImport: true,
-    importedQuestionCount: 60,
+    importedQuestionCount: 66,
     importStatus: 'partial',
   },
   {
@@ -83,9 +83,9 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     questionPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/m42obm000000afqx-att/2024r06a_ap_am_qs.pdf',
     answerPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/m42obm000000afqx-att/2024r06a_ap_am_ans.pdf',
     sourcePageUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/2024r06.html',
-    note: '公式資料で確認済みの28問を取り込み済み。図表依存問題などは未取り込み',
+    note: '公式資料で確認済みの32問を取り込み済み。図表依存問題などは未取り込み',
     isReadyForImport: true,
-    importedQuestionCount: 28,
+    importedQuestionCount: 32,
     importStatus: 'partial',
   },
   {
