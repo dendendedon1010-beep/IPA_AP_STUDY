@@ -14,9 +14,9 @@ export const ipaPastExamCatalog: IpaPastExamCatalogItem[] = [
     questionPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07h_ap_am_qs.pdf',
     answerPdfUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/nl10bi0000009lh8-att/2025r07h_ap_am_ans.pdf',
     sourcePageUrl: 'https://www.ipa.go.jp/shiken/mondai-kaiotu/2025r07.html',
-    note: '公式確認済みのテキストで完結する20問を取り込み済み',
+    note: '公式確認済みのテキストで完結する30問を取り込み済み',
     isReadyForImport: true,
-    importedQuestionCount: 20,
+    importedQuestionCount: 30,
     importStatus: 'partial',
   },
   {
